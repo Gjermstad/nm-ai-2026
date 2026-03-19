@@ -55,7 +55,7 @@ async def solve(solve_request: SolveRequest):
 
     # 1. Parse the prompt with Gemini
     try:
-        model = GenerativeModel("gemini-2.5-pro-preview-03-25")
+        model = GenerativeModel("gemini-2.0-flash-001")
 
         content_parts = []
         for file in files:
