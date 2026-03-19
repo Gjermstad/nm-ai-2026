@@ -1,24 +1,21 @@
-from fastapi import FastAPI, Request, HTTPException
+cat > ~/nm-ai-2026/task1-Tripletex/main.py << 'EOF'
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import base64
 import requests
-import vertexai
-from vertexai.generative_models import GenerativeModel, Part
 import json
 import logging
 import re
+import subprocess
+import tempfile
+import os
 from typing import List, Optional
 from datetime import date
 
-# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
-
-# Initialize Vertex AI
-vertexai.init(project="ai-nm26osl-1730", location="us-central1")
-
 TODAY = date.today().isoformat()
 
 
@@ -44,6 +41,19 @@ def health():
     return {"status": "ok"}
 
 
+def call_gemini(prompt: str) -> str:
+    result = subprocess.run(
+        ["gemini", "--model", "gemini-2.5-pro"],
+        input=prompt,
+        capture_output=True,
+        text=True,
+        timeout=120
+    )
+    if result.returncode != 0:
+        raise Exception(f"Gemini CLI error: {result.stderr}")
+    return result.stdout.strip()
+
+
 @app.post("/solve")
 async def solve(solve_request: SolveRequest):
     prompt = solve_request.prompt
@@ -53,19 +63,8 @@ async def solve(solve_request: SolveRequest):
 
     logger.info(f"Received prompt: {prompt}")
 
-    # 1. Parse the prompt with Gemini
+    # 1. Call Gemini CLI
     try:
-        model = GenerativeModel("gemini-2.0-flash")
-
-        content_parts = []
-        for file in files:
-            content_parts.append(
-                Part.from_data(
-                    base64.b64decode(file.content_base64),
-                    mime_type=file.mime_type
-                )
-            )
-
         llm_prompt = f"""You are a Tripletex accounting API expert. Convert the task below into a precise sequence of Tripletex v2 REST API calls.
 
 TASK (may be in any language - Norwegian, English, Spanish, German, French, Portuguese, Nynorsk):
@@ -104,7 +103,7 @@ POST /travelExpense:
   REQUIRED: employee ({{"id": ID}}), description, startDate ("YYYY-MM-DD"), endDate ("YYYY-MM-DD")
 
 DELETE /travelExpense/{{id}}:
-  No body. GET /travelExpense first to find the id, then DELETE /travelExpense/$responses.N.values.0.id
+  No body. GET /travelExpense first, then DELETE /travelExpense/$responses.N.values.0.id
 
 === PLACEHOLDER SYNTAX ===
 - "$responses.N.value.id"    -> id from POST/PUT response at index N
@@ -136,12 +135,9 @@ Example for creating an employee:
 }}
 """
 
-        content_parts.append(Part.from_text(llm_prompt))
-        llm_response = model.generate_content(content_parts)
-        raw_text = llm_response.candidates[0].content.parts[0].text
+        raw_text = call_gemini(llm_prompt)
         logger.info(f"LLM raw response: {raw_text[:500]}")
 
-        # Strip markdown fences if present
         cleaned = raw_text.strip()
         cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
         cleaned = re.sub(r"\s*```$", "", cleaned)
@@ -153,7 +149,7 @@ Example for creating an employee:
         logger.error(f"LLM step failed: {e}")
         raise HTTPException(status_code=500, detail=f"LLM step failed: {e}")
 
-    # 2. Execute Tripletex API calls in sequence
+    # 2. Execute Tripletex API calls
     responses = []
     for i, api_call in enumerate(api_calls["calls"]):
         method = api_call["method"].upper()
@@ -165,19 +161,17 @@ Example for creating an employee:
         if body:
             body_str = json.dumps(body)
             for j, prev_resp in enumerate(responses):
-                # Single value response: $responses.j.value.id
                 if prev_resp.get("value") and isinstance(prev_resp["value"], dict):
                     single_id = prev_resp["value"].get("id")
                     if single_id is not None:
                         body_str = body_str.replace(f'"$responses.{j}.value.id"', str(single_id))
-                # List response: $responses.j.values.0.id
                 if prev_resp.get("values") and len(prev_resp["values"]) > 0:
                     list_id = prev_resp["values"][0].get("id")
                     if list_id is not None:
                         body_str = body_str.replace(f'"$responses.{j}.values.0.id"', str(list_id))
             body = json.loads(body_str)
 
-        # Substitute placeholders in endpoint path (for PUT/DELETE)
+        # Substitute placeholders in endpoint path
         for j, prev_resp in enumerate(responses):
             if prev_resp.get("value") and isinstance(prev_resp["value"], dict):
                 single_id = prev_resp["value"].get("id")
@@ -189,7 +183,7 @@ Example for creating an employee:
                     endpoint = endpoint.replace(f"$responses.{j}.values.0.id", str(list_id))
 
         api_url = f"{base_url}{endpoint}"
-        logger.info(f"Call {i}: {method} {api_url} params={params} body={json.dumps(body)[:200] if body else None}")
+        logger.info(f"Call {i}: {method} {api_url} body={json.dumps(body)[:200] if body else None}")
 
         try:
             response = requests.request(
@@ -203,24 +197,25 @@ Example for creating an employee:
 
             if response.status_code == 204:
                 responses.append({})
-                logger.info(f"Call {i} succeeded with 204 No Content")
+                logger.info(f"Call {i} succeeded with 204")
             else:
                 resp_json = response.json()
-                logger.info(f"Call {i} response status={response.status_code}: {json.dumps(resp_json)[:300]}")
+                logger.info(f"Call {i} status={response.status_code}: {json.dumps(resp_json)[:300]}")
                 if response.status_code >= 400:
-                    logger.error(f"Tripletex error on call {i}: {response.status_code} {response.text}")
+                    logger.error(f"Tripletex error {i}: {response.status_code} {response.text}")
                     responses.append({"error": response.status_code, "detail": resp_json})
                 else:
                     responses.append(resp_json)
 
         except requests.exceptions.RequestException as e:
-            logger.error(f"Request failed on call {i}: {e}")
+            logger.error(f"Request failed {i}: {e}")
             responses.append({"error": "request_failed", "detail": str(e)})
 
-    logger.info("All calls completed — returning status completed")
+    logger.info("Done — returning completed")
     return {"status": "completed"}
 
 
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8080)
+EOF
