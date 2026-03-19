@@ -6,7 +6,9 @@ import vertexai
 from vertexai.generative_models import GenerativeModel, Part
 import json
 import logging
+import re
 from typing import List, Optional
+from datetime import date
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -17,140 +19,207 @@ app = FastAPI()
 # Initialize Vertex AI
 vertexai.init(project="ai-nm26osl-1730", location="europe-west4")
 
+TODAY = date.today().isoformat()
+
+
 class TripletexCredentials(BaseModel):
     base_url: str
     session_token: str
+
 
 class FileInfo(BaseModel):
     filename: str
     content_base64: str
     mime_type: str
 
+
 class SolveRequest(BaseModel):
     prompt: str
     files: Optional[List[FileInfo]] = None
     tripletex_credentials: TripletexCredentials
 
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+
 @app.post("/solve")
 async def solve(solve_request: SolveRequest):
-    try:
-        prompt = solve_request.prompt
-        base_url = solve_request.tripletex_credentials.base_url
-        session_token = solve_request.tripletex_credentials.session_token
-        files = solve_request.files or []
+    prompt = solve_request.prompt
+    base_url = solve_request.tripletex_credentials.base_url
+    session_token = solve_request.tripletex_credentials.session_token
+    files = solve_request.files or []
 
-        # 1. Parse the prompt with an LLM
+    logger.info(f"Received prompt: {prompt}")
+
+    # 1. Parse the prompt with Gemini
+    try:
         model = GenerativeModel("gemini-2.5-pro-preview-03-25")
-        
+
         content_parts = []
         for file in files:
-            content_parts.append(Part.from_data(base64.b64decode(file.content_base64), mime_type=file.mime_type))
+            content_parts.append(
+                Part.from_data(
+                    base64.b64decode(file.content_base64),
+                    mime_type=file.mime_type
+                )
+            )
 
-        llm_prompt = f"""
-You are an expert in the Tripletex API. Your task is to convert a natural language prompt into a sequence of Tripletex API requests.
+        llm_prompt = f"""You are a Tripletex accounting API expert. Convert the task below into a precise sequence of Tripletex v2 REST API calls.
 
-The user wants to perform the following action: "{prompt}".
+TASK (may be in any language - Norwegian, English, Spanish, German, French, Portuguese, Nynorsk):
+"{prompt}"
 
-Based on this, determine the correct API endpoints, HTTP methods, and request bodies.
+TODAY'S DATE: {TODAY}
 
-Your response must be a JSON object containing a list of API calls. For example:
+=== CRITICAL: REQUIRED FIELDS ===
 
+POST /employee:
+  REQUIRED: firstName, lastName, userType, email, department ({{"id": DEPT_ID}})
+  userType enum: "STANDARD", "EXTENDED", "NO_ACCESS"
+  If prompt says "administrator"/"kontoadministrator"/"admin" use "EXTENDED", otherwise "STANDARD"
+  email: use from prompt if given, else generate as firstname.lastname@example.com (lowercase)
+  department.id: ALWAYS do GET /department first to get the ID, use "$responses.0.values.0.id"
+
+POST /customer:
+  REQUIRED: name
+  Optional: email, phoneNumber, isCustomer (true)
+
+POST /department:
+  REQUIRED: name
+
+POST /project:
+  REQUIRED: name, startDate ("YYYY-MM-DD"), projectManager ({{"id": EMPLOYEE_ID}})
+  Optional: customer ({{"id": CUSTOMER_ID}})
+
+POST /order:
+  REQUIRED: customer ({{"id": ID}}), orderDate ("YYYY-MM-DD")
+  orderLines: [{{"description": "string", "count": 1, "unitPriceExcludingVatCurrency": 1000}}]
+
+POST /invoice:
+  REQUIRED: invoiceDate ("YYYY-MM-DD"), invoiceDueDate ("YYYY-MM-DD"), orders: [{{"id": ORDER_ID}}]
+
+POST /travelExpense:
+  REQUIRED: employee ({{"id": ID}}), description, startDate ("YYYY-MM-DD"), endDate ("YYYY-MM-DD")
+
+DELETE /travelExpense/{{id}}:
+  No body. GET /travelExpense first to find the id, then DELETE /travelExpense/$responses.N.values.0.id
+
+=== PLACEHOLDER SYNTAX ===
+- "$responses.N.value.id"    -> id from POST/PUT response at index N
+- "$responses.N.values.0.id" -> id of first item from GET list response at index N
+
+=== OUTPUT FORMAT ===
+Respond with ONLY a raw JSON object. No markdown, no code fences, no explanation.
+
+Example for creating an employee:
 {{
   "calls": [
     {{
-      "method": "POST",
-      "endpoint": "/customer",
-      "body": {{
-        "name": "New Customer AS"
-      }}
+      "method": "GET",
+      "endpoint": "/department",
+      "params": {{"fields": "id,name", "count": 1}}
     }},
     {{
       "method": "POST",
-      "endpoint": "/invoice",
+      "endpoint": "/employee",
       "body": {{
-        "customer": {{
-          "id": "$responses.0.value.id"
-        }},
-        "invoiceDate": "2026-03-19",
-        "dueDate": "2026-04-02",
-        "orderLines": [
-          {{
-            "description": "Test product",
-            "unitPrice": 1000
-          }}
-        ]
+        "firstName": "Ola",
+        "lastName": "Nordmann",
+        "userType": "STANDARD",
+        "email": "ola.nordmann@example.com",
+        "department": {{"id": "$responses.0.values.0.id"}}
       }}
     }}
   ]
 }}
-
-Use placeholders like `$responses.0.value.id` to reference values from previous responses. The number after `responses.` is the index of the previous call.
-
-Here are the key Tripletex API endpoints to support:
-
-- **POST /employee**: Create employee (firstName, lastName required)
-- **GET /employee**: List employees
-- **POST /customer**: Create customer (name required)
-- **POST /product**: Create product (name, price required)
-- **POST /invoice**: Create invoice (customer.id, invoiceDate, dueDate, orderLines required)
-- **POST /invoice/{{id}}/:payment**: Register payment
-- **POST /travelExpense**: Create travel expense
-- **DELETE /travelExpense/{{id}}**: Delete travel expense
-- **POST /project**: Create project (name, customer.id required)
-- **POST /department**: Create department (name required)
-- **POST /ledger/voucher**: Create voucher/accounting entry
-
-Now, generate the API request for the prompt: "{prompt}"
 """
+
         content_parts.append(Part.from_text(llm_prompt))
         llm_response = model.generate_content(content_parts)
+        raw_text = llm_response.candidates[0].content.parts[0].text
+        logger.info(f"LLM raw response: {raw_text[:500]}")
 
-        try:
-            api_request_details = llm_response.candidates[0].content.parts[0].text
-            api_request_details = api_request_details.strip().replace("```json", "").replace("```", "")
-            api_calls = json.loads(api_request_details)
-        except (ValueError, IndexError, json.JSONDecodeError) as e:
-            logger.error(f"Failed to parse LLM response: {e}")
-            logger.error(f"LLM Response: {llm_response.text}")
-            raise HTTPException(status_code=500, detail="Failed to parse LLM response")
+        # Strip markdown fences if present
+        cleaned = raw_text.strip()
+        cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
+        cleaned = re.sub(r"\s*```$", "", cleaned)
+        cleaned = cleaned.strip()
 
-        # 2. Call the Tripletex API
-        responses = []
-        for i, api_call in enumerate(api_calls['calls']):
-            try:
-                # Substitute placeholders
-                body = api_call.get("body")
-                if body:
-                    body_str = json.dumps(body)
-                    for j, prev_resp in enumerate(responses):
-                        body_str = body_str.replace(f'"$responses.{j}.value.id"', str(prev_resp.get('value', {}).get('id')))
-                    api_call["body"] = json.loads(body_str)
-
-                api_url = f"{base_url}{api_call['endpoint']}"
-                logger.info(f"Calling Tripletex API: {api_call['method']} {api_url}")
-                response = requests.request(
-                    method=api_call["method"],
-                    url=api_url,
-                    auth=("0", session_token),
-                    json=api_call.get("body"),
-                    timeout=30
-                )
-                response.raise_for_status()  # Raise an exception for bad status codes
-                responses.append(response.json())
-            except requests.exceptions.RequestException as e:
-                logger.error(f"Failed to call Tripletex API: {e}")
-                if e.response is not None:
-                    logger.error(f"Tripletex API response: {e.response.text}")
-                    raise HTTPException(status_code=e.response.status_code, detail=e.response.text)
-                raise HTTPException(status_code=500, detail="Failed to call Tripletex API")
-
-        # 3. Return {"status": "completed"}
-        logger.info("Successfully completed the request")
-        return {"status": "completed"}
+        api_calls = json.loads(cleaned)
 
     except Exception as e:
-        logger.error(f"An unexpected error occurred: {e}")
-        raise HTTPException(status_code=500, detail="An unexpected error occurred")
+        logger.error(f"LLM step failed: {e}")
+        raise HTTPException(status_code=500, detail=f"LLM step failed: {e}")
+
+    # 2. Execute Tripletex API calls in sequence
+    responses = []
+    for i, api_call in enumerate(api_calls["calls"]):
+        method = api_call["method"].upper()
+        endpoint = api_call["endpoint"]
+        body = api_call.get("body")
+        params = api_call.get("params")
+
+        # Substitute placeholders in body
+        if body:
+            body_str = json.dumps(body)
+            for j, prev_resp in enumerate(responses):
+                # Single value response: $responses.j.value.id
+                if prev_resp.get("value") and isinstance(prev_resp["value"], dict):
+                    single_id = prev_resp["value"].get("id")
+                    if single_id is not None:
+                        body_str = body_str.replace(f'"$responses.{j}.value.id"', str(single_id))
+                # List response: $responses.j.values.0.id
+                if prev_resp.get("values") and len(prev_resp["values"]) > 0:
+                    list_id = prev_resp["values"][0].get("id")
+                    if list_id is not None:
+                        body_str = body_str.replace(f'"$responses.{j}.values.0.id"', str(list_id))
+            body = json.loads(body_str)
+
+        # Substitute placeholders in endpoint path (for PUT/DELETE)
+        for j, prev_resp in enumerate(responses):
+            if prev_resp.get("value") and isinstance(prev_resp["value"], dict):
+                single_id = prev_resp["value"].get("id")
+                if single_id is not None:
+                    endpoint = endpoint.replace(f"$responses.{j}.value.id", str(single_id))
+            if prev_resp.get("values") and len(prev_resp["values"]) > 0:
+                list_id = prev_resp["values"][0].get("id")
+                if list_id is not None:
+                    endpoint = endpoint.replace(f"$responses.{j}.values.0.id", str(list_id))
+
+        api_url = f"{base_url}{endpoint}"
+        logger.info(f"Call {i}: {method} {api_url} params={params} body={json.dumps(body)[:200] if body else None}")
+
+        try:
+            response = requests.request(
+                method=method,
+                url=api_url,
+                auth=("0", session_token),
+                json=body,
+                params=params,
+                timeout=60,
+            )
+
+            if response.status_code == 204:
+                responses.append({})
+                logger.info(f"Call {i} succeeded with 204 No Content")
+            else:
+                resp_json = response.json()
+                logger.info(f"Call {i} response status={response.status_code}: {json.dumps(resp_json)[:300]}")
+                if response.status_code >= 400:
+                    logger.error(f"Tripletex error on call {i}: {response.status_code} {response.text}")
+                    responses.append({"error": response.status_code, "detail": resp_json})
+                else:
+                    responses.append(resp_json)
+
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Request failed on call {i}: {e}")
+            responses.append({"error": "request_failed", "detail": str(e)})
+
+    logger.info("All calls completed — returning status completed")
+    return {"status": "completed"}
+
 
 if __name__ == "__main__":
     import uvicorn

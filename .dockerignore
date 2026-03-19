@@ -1,0 +1,11 @@
+.git
+.gitignore
+__pycache__
+*.pyc
+*Dockerfile
+.dockerignore
+README.md
+PROGRESS.md
+task2-Astar/
+task3-Norgesgruppen/
+.mcp.json
