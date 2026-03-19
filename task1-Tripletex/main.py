@@ -1,4 +1,3 @@
-cat > ~/nm-ai-2026/task1-Tripletex/main.py << 'EOF'
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import base64
@@ -6,8 +5,6 @@ import requests
 import json
 import logging
 import re
-import subprocess
-import tempfile
 import os
 from typing import List, Optional
 from datetime import date
@@ -17,6 +14,10 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI()
 TODAY = date.today().isoformat()
+
+import os
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key={GEMINI_API_KEY}"
 
 
 class TripletexCredentials(BaseModel):
@@ -42,16 +43,13 @@ def health():
 
 
 def call_gemini(prompt: str) -> str:
-    result = subprocess.run(
-        ["gemini", "--model", "gemini-2.5-pro"],
-        input=prompt,
-        capture_output=True,
-        text=True,
+    resp = requests.post(
+        GEMINI_URL,
+        json={"contents": [{"parts": [{"text": prompt}]}]},
         timeout=120
     )
-    if result.returncode != 0:
-        raise Exception(f"Gemini CLI error: {result.stderr}")
-    return result.stdout.strip()
+    resp.raise_for_status()
+    return resp.json()["candidates"][0]["content"]["parts"][0]["text"]
 
 
 @app.post("/solve")
@@ -63,7 +61,6 @@ async def solve(solve_request: SolveRequest):
 
     logger.info(f"Received prompt: {prompt}")
 
-    # 1. Call Gemini CLI
     try:
         llm_prompt = f"""You are a Tripletex accounting API expert. Convert the task below into a precise sequence of Tripletex v2 REST API calls.
 
@@ -149,7 +146,6 @@ Example for creating an employee:
         logger.error(f"LLM step failed: {e}")
         raise HTTPException(status_code=500, detail=f"LLM step failed: {e}")
 
-    # 2. Execute Tripletex API calls
     responses = []
     for i, api_call in enumerate(api_calls["calls"]):
         method = api_call["method"].upper()
@@ -157,7 +153,6 @@ Example for creating an employee:
         body = api_call.get("body")
         params = api_call.get("params")
 
-        # Substitute placeholders in body
         if body:
             body_str = json.dumps(body)
             for j, prev_resp in enumerate(responses):
@@ -171,7 +166,6 @@ Example for creating an employee:
                         body_str = body_str.replace(f'"$responses.{j}.values.0.id"', str(list_id))
             body = json.loads(body_str)
 
-        # Substitute placeholders in endpoint path
         for j, prev_resp in enumerate(responses):
             if prev_resp.get("value") and isinstance(prev_resp["value"], dict):
                 single_id = prev_resp["value"].get("id")
