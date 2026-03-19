@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI()
 
 # Initialize Vertex AI
-vertexai.init(project="ai-nm26osl-1730", location="europe-west4")
+vertexai.init(project="ai-nm26osl-1730", location="us-central1")
 
 TODAY = date.today().isoformat()
 
@@ -55,7 +55,7 @@ async def solve(solve_request: SolveRequest):
 
     # 1. Parse the prompt with Gemini
     try:
-        model = GenerativeModel("gemini-2.0-flash-001")
+        model = GenerativeModel("gemini-2.0-flash")
 
         content_parts = []
         for file in files:
