@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Environment files / secrets
+.env
+.env.*
+*.key
+*.pem
+secrets.json
+service-account*.json
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Build / cache
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+
+# Data and artifacts
+data/raw/
+data/processed/
+artifacts/
+models/
+submissions/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
