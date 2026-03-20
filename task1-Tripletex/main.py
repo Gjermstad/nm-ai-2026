@@ -363,6 +363,8 @@ If the task asks you to do something only possible via a BETA endpoint, skip tha
 
 === OUTPUT FORMAT ===
 Respond with ONLY a raw JSON object - no markdown, no code fences, no explanation.
+Each call object MUST have exactly these keys: "method", "endpoint", "body" (optional), "params" (optional).
+CRITICAL: use "endpoint" not "path" or "url" for the URL path field.
 
 {{
   "calls": [
@@ -421,6 +423,7 @@ FAILED CALLS:
 {error_section}
 
 Read the error messages carefully and generate corrected calls.
+Each call object MUST use "endpoint" (not "path" or "url") for the URL path field.
 Return ONLY a raw JSON object — no markdown, no explanation:
 {{"calls": [...]}}
 """
