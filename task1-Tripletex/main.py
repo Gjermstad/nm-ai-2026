@@ -1,8 +1,10 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 import requests
 import json
 import logging
+import os
 import re
 import time
 import base64
@@ -19,7 +21,15 @@ VERTEX_URL = f"https://aiplatform.googleapis.com/v1/projects/{PROJECT_ID}/locati
 MAX_DURATION = 255  # seconds before hard stop (300s limit - 45s buffer)
 MAX_CALLS    = 12   # cap total Tripletex API calls for efficiency
 
-app = FastAPI()
+# Optional inbound API key auth (set SOLVE_API_KEY env var to enable)
+_API_KEY = os.getenv("SOLVE_API_KEY")
+_bearer  = HTTPBearer(auto_error=False)
+
+async def _check_auth(creds: Optional[HTTPAuthorizationCredentials] = Depends(_bearer)):
+    if _API_KEY and (creds is None or creds.credentials != _API_KEY):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key")
+
+app = FastAPI(dependencies=[Depends(_check_auth)])
 
 
 class TripletexCredentials(BaseModel):
@@ -65,7 +75,7 @@ def call_llm(prompt: str, deadline: float) -> str:
         headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
         json={
             "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-            "generationConfig": {"temperature": 0.1, "maxOutputTokens": 8192},
+            "generationConfig": {"temperature": 0.1, "maxOutputTokens": 8192, "responseMimeType": "application/json"},
         },
         timeout=min(120, max(15, int(remaining) - 10)),
     )
@@ -168,6 +178,11 @@ def execute_calls(calls: list, responses: list, base_url: str, session_token: st
         if len(responses) >= MAX_CALLS:
             logger.warning("MAX_CALLS (%d) reached, stopping", MAX_CALLS)
             break
+
+        if not isinstance(call.get("method"), str) or not isinstance(call.get("endpoint"), str):
+            logger.warning("CALL %d: skipping malformed call object: %s", i, call)
+            responses.append({"error": "malformed call"})
+            continue
 
         method   = call["method"].upper()
         endpoint = call.get("endpoint", "")
@@ -293,6 +308,10 @@ Ledger voucher (bilag):
   POST /ledger/voucher
   body: {{"date": "YYYY-MM-DD", "description": "...", "vouchers": [{{"account": {{"id": ACCT_ID}}, "amount": 0}}]}}
   GET /ledger/account to find account IDs by number (e.g. params: {{"number": "1500"}})
+  DELETE /ledger/voucher/{{id}}: GET /ledger/voucher first → DELETE /ledger/voucher/$responses.N.values.0.id
+
+Ledger postings (posteringer):
+  GET /ledger/posting with params: {{"dateFrom": "YYYY-MM-DD", "dateTo": "YYYY-MM-DD", "fields": "id,date,description,amount,account"}}
 
 === PLACEHOLDER SYNTAX ===
 "$responses.N.value.id"         -> id from POST/PUT response at step N
@@ -318,15 +337,22 @@ Respond with ONLY a raw JSON object - no markdown, no code fences, no explanatio
 
 
 def build_repair_prompt(original_prompt: str, today: str, responses: list, errors_422: list) -> str:
-    # Summarise what succeeded to give the LLM context for follow-up calls
+    # Summarise what succeeded — include id, version, name so repair calls can reference them
+    _FIELDS = ("id", "version", "name")
     succeeded = []
     failed_steps = {e["step"] for e in errors_422}
     for i, resp in enumerate(responses):
         if i in failed_steps:
             continue
-        v = resp.get("value")
-        if isinstance(v, dict) and v.get("id"):
-            succeeded.append(f"  Step {i}: id={v['id']}")
+        v  = resp.get("value")
+        vs = resp.get("values", [])
+        if isinstance(v, dict):
+            fields = {k: v[k] for k in _FIELDS if v.get(k) is not None}
+            if fields:
+                succeeded.append(f"  Step {i} (single): {fields}")
+        elif vs:
+            summary = [{k: item[k] for k in _FIELDS if item.get(k)} for item in vs[:3]]
+            succeeded.append(f"  Step {i} (list, first {len(summary)}): {summary}")
 
     success_section = ("\n".join(succeeded)) if succeeded else "  (none)"
 
