@@ -4,31 +4,19 @@ import requests
 import json
 import logging
 import re
-import os
+import subprocess
 from typing import List, Optional
 from datetime import date
-import vertexai
-from vertexai.generative_models import GenerativeModel
 
-# ── Logging ───────────────────────────────────────────────────────────────────
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(name)s: %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("agent")
 
-# ── Vertex AI init ────────────────────────────────────────────────────────────
 PROJECT_ID = "ai-nm26osl-1730"
-LOCATION   = "us-central1"
-MODEL_NAME = "gemini-2.0-flash-001"
-
-vertexai.init(project=PROJECT_ID, location=LOCATION)
-model = GenerativeModel(MODEL_NAME)
+VERTEX_URL = f"https://aiplatform.googleapis.com/v1/projects/{PROJECT_ID}/locations/global/publishers/google/models/gemini-2.5-flash:generateContent"
 
 app   = FastAPI()
 TODAY = date.today().isoformat()
 
-# ── Request schema ────────────────────────────────────────────────────────────
 class TripletexCredentials(BaseModel):
     base_url: str
     session_token: str
@@ -43,23 +31,33 @@ class SolveRequest(BaseModel):
     files: Optional[List[FileInfo]] = None
     tripletex_credentials: TripletexCredentials
 
-# ── Health ────────────────────────────────────────────────────────────────────
 @app.get("/health")
 def health():
     return {"status": "ok"}
 
-# ── LLM call ──────────────────────────────────────────────────────────────────
+def get_access_token() -> str:
+    return subprocess.check_output(
+        ["gcloud", "auth", "application-default", "print-access-token"],
+        text=True
+    ).strip()
+
 def call_llm(prompt: str) -> str:
-    logger.info("Calling Vertex AI (%s)...", MODEL_NAME)
-    response = model.generate_content(
-        prompt,
-        generation_config={"temperature": 0.1, "max_output_tokens": 2048}
+    logger.info("Calling Vertex AI (gemini-2.5-flash, global)...")
+    token = get_access_token()
+    resp = requests.post(
+        VERTEX_URL,
+        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+        json={
+            "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+            "generationConfig": {"temperature": 0.1, "maxOutputTokens": 2048}
+        },
+        timeout=120
     )
-    text = response.text
+    resp.raise_for_status()
+    text = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
     logger.info("LLM response (first 600 chars): %s", text[:600])
     return text
 
-# ── Placeholder resolver ──────────────────────────────────────────────────────
 def resolve(value: str, responses: list) -> str:
     for j, resp in enumerate(responses):
         if resp.get("value") and isinstance(resp["value"], dict):
@@ -72,7 +70,6 @@ def resolve(value: str, responses: list) -> str:
                 value = value.replace(f"$responses.{j}.values.0.id", str(list_id))
     return value
 
-# ── Main endpoint ─────────────────────────────────────────────────────────────
 @app.post("/solve")
 async def solve(req: SolveRequest):
     prompt        = req.prompt
@@ -126,7 +123,7 @@ DELETE /travelExpense/{{id}}:
 "$responses.N.values.0.id"  -> id of first item from GET list at step N
 
 === OUTPUT FORMAT ===
-Respond with ONLY a raw JSON object — no markdown, no code fences, no explanation.
+Respond with ONLY a raw JSON object - no markdown, no code fences, no explanation.
 
 {{
   "calls": [
@@ -146,7 +143,6 @@ Respond with ONLY a raw JSON object — no markdown, no code fences, no explanat
         logger.error("LLM call failed: %s", e)
         return {"status": "completed"}
 
-    # Strip markdown fences if present
     cleaned = raw.strip()
     cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
     cleaned = re.sub(r"\s*```$", "", cleaned)
@@ -168,20 +164,17 @@ Respond with ONLY a raw JSON object — no markdown, no code fences, no explanat
         body     = call.get("body")
         params   = call.get("params")
 
-        # Resolve placeholders in body
         if body:
             body_str = json.dumps(body)
             body_str = resolve(body_str, responses)
             body = json.loads(body_str)
 
-        # Resolve placeholders in endpoint
         endpoint = resolve(endpoint, responses)
-
         url = f"{base_url}{endpoint}"
+
         logger.info("CALL %d: %s %s | body=%s | params=%s",
                     i, method, url,
-                    json.dumps(body)[:300] if body else None,
-                    params)
+                    json.dumps(body)[:300] if body else None, params)
 
         try:
             r = requests.request(
