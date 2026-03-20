@@ -75,9 +75,9 @@ Tested against deployed agent with sandbox credentials:
 
 ## 5. What still needs to be done
 
-1. **Deploy PR #8** — merge is done, now redeploy from Cloud Shell (`gcloud run deploy ...`)
-2. **Submit to validator and gather logs** — the most impactful next step; observe which task types fail and what errors the validator sees
-3. **Prompt tuning from validator logs** — once real failure data is available, tighten field instructions for failing task types
+1. **Redeploy** — PRs #8 and #9 are merged; pull and redeploy from Cloud Shell
+2. **Submit to validator and gather logs** — most impactful next step; identify which task types fail and why
+3. **Prompt tuning from validator logs** — tighten field instructions for whichever task types are failing
 
 ## 6. Key technical details
 
