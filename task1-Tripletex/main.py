@@ -192,6 +192,9 @@ def execute_calls(calls: list, responses: list, base_url: str, session_token: st
         if body:
             body_str = resolve(json.dumps(body), responses)
             body = json.loads(body_str)
+        if params:
+            params_str = resolve(json.dumps(params), responses)
+            params = json.loads(params_str)
         endpoint = resolve(endpoint, responses)
         url = f"{base_url}{endpoint}"
 
@@ -319,16 +322,18 @@ DELETE /travelExpense/{{id}}:
 
 Register invoice payment (betaling på faktura):
   All parameters are QUERY PARAMS — there is no request body for this endpoint.
-  Step 1: GET /invoice with params e.g. {{"invoiceDateFrom": "2020-01-01", "invoiceDateTo": "2030-12-31", "fields": "id,invoiceNumber,amountCurrency"}} to find the invoice id.
+  Step 1: GET /invoice — REQUIRED params: invoiceDateFrom="2000-01-01", invoiceDateTo="{today}"
+    Optional filter params: customer.id, amountCurrency, fields="id,invoiceNumber,amountCurrency"
+    CRITICAL: invoiceDateFrom and invoiceDateTo are ALWAYS required — omitting them causes 422.
   Step 2: PUT /invoice/$responses.0.values.0.id/:payment
-    REQUIRED query params: paymentDate=YYYY-MM-DD, paymentTypeId=1, paidAmount=<amount>
-    Optional query params: paidAmountCurrency=<amount in foreign currency>
+    REQUIRED query params: paymentDate=YYYY-MM-DD, paymentTypeId=1, paidAmount=<number>
+    Use placeholder for amount: "paidAmount": "$responses.0.values.0.amountCurrency"
   Example call: {{"method": "PUT", "endpoint": "/invoice/$responses.0.values.0.id/:payment",
-    "params": {{"paymentDate": "{today}", "paymentTypeId": "1", "paidAmount": "1000"}}}}
+    "params": {{"paymentDate": "{today}", "paymentTypeId": "1", "paidAmount": "$responses.0.values.0.amountCurrency"}}}}
 
 Issue credit note (kreditnota / kreditfaktura):
   All parameters are QUERY PARAMS — there is no request body for this endpoint.
-  Step 1: GET /invoice to find the invoice id (same as payment above).
+  Step 1: GET /invoice — same as payment above (invoiceDateFrom and invoiceDateTo ALWAYS required).
   Step 2: PUT /invoice/$responses.0.values.0.id/:createCreditNote
     REQUIRED query params: date=YYYY-MM-DD
     Optional query params: comment=<text>, sendToCustomer=false, sendType=<EMAIL|EHF|...>
