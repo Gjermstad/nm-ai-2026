@@ -51,7 +51,7 @@ def call_llm(prompt: str) -> str:
         headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
         json={
             "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-            "generationConfig": {"temperature": 0.1, "maxOutputTokens": 2048}
+            "generationConfig": {"temperature": 0.1, "maxOutputTokens": 8192}
         },
         timeout=120
     )
