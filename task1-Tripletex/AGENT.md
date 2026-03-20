@@ -247,11 +247,12 @@ The validator POSTs to `/solve` with this structure:
 
 ## 8. SCORING CONTEXT
 
-- Top score on leaderboard: 13.44
-- Our best score: 0 (all submissions failed due to bugs)
-- 2/30 unique task types encountered
+- Top score on leaderboard: 43.95 (websecured.io, 18/30 task types, T1=15.5, T2=28.4)
+- Top teams have 18/30 task types covered, scores clustered 41–44
+- Our best score: 0 (all submissions failed due to bugs — deliveryDate + travelExpense fields fixed in PR #8)
 - 30 unique task types exist total
 - Score is sum of best per task type — so each unique task type is a new opportunity
+- T3 (Astar Island) not yet open — opens Saturday March 21 (exact time unknown); competition ends Sunday March 22 15:00 CET
 
 ---
 
@@ -277,19 +278,22 @@ The current agent (`main.py`) does:
 
 ## 10. WHAT TO IMPROVE NEXT
 
+### Already done (do not re-implement)
+- ✅ `--min-instances 1` — in deploy command
+- ✅ Gemini JSON mode (`responseMimeType: application/json`) — in generationConfig
+- ✅ `deliveryDate` on POST /order — added in PR #8
+- ✅ Correct travelExpense fields (`title`, `travelDetails.departureDate/returnDate`) — fixed in PR #8
+- ✅ BETA endpoint block — added in PR #7
+- ✅ 409 repair pass — handled alongside 422
+- ✅ Request-id logging (`x-tlx-request-id` + `requestId`) — added in PR #9
+
 ### High priority
-1. **Sandbox smoke test** — test employee create, invoice, travel expense delete against sandbox to confirm scores
-2. **Add `--min-instances 1`** — prevents cold starts during active judging windows (add to deploy command)
-3. **Submit and observe** — gather logs from real validator runs to see which task types are being sent and which checks fail
+1. **Submit and read logs** — gather real validator run logs to see which task types fail and what errors appear
+2. **Prompt tuning from failures** — once logs show specific field errors, tighten prompt rules for those task types
 
-### Medium priority
-4. **Parallel submissions** — submit multiple times to hit more unique task types and build score across all 30
-5. **Prompt tuning from failures** — read validator logs, identify which fields are wrong, tighten prompt for those task types
-6. **Gemini JSON mode** — use `responseMimeType: "application/json"` in generationConfig to guarantee valid JSON output and eliminate parse failures
-
-### Low priority (nice to have)
-7. **Tool calling** — use Gemini's native function calling instead of parsing JSON from text
-8. **Structured output schema** — pass a JSON schema to Gemini to constrain the calls array format
+### Lower priority
+3. **Parallel submissions** — submit multiple times to hit more unique task types across the 30 total
+4. **429 recovery** — currently aborts immediately; a bounded wait-and-retry on X-Rate-Limit-Reset could recover some tasks
 
 ---
 
@@ -338,7 +342,54 @@ cd ~/nm-ai-2026 && git add -A && git commit -m "your message" && git push
 
 ---
 
-## 12. IMPORTANT NOTES FOR NEW AI ASSISTANT
+## 12. FAILURE TRIAGE WORKFLOW
+
+This is the core feedback loop for the remaining competition time.
+
+### Step 1 — Pull logs after a validator run
+```bash
+gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=tripletex-agent" \
+  --limit=200 --format="value(textPayload)" --freshness=30m
+```
+
+### Step 2 — Identify the task type and failing call
+Look for lines like:
+```
+PROMPT: Opprett en ordre for ...
+CALL 2 422 | tlx-id=<id> | {"validationMessages": [{"field": "deliveryDate", ...}]}
+```
+The `tlx-id` can be given to Tripletex support if needed. The `validationMessages[].field` tells you exactly what was wrong.
+
+### Step 3 — Fix the planning prompt in main.py
+- If a field is missing → add it to the relevant `POST`/`PUT` section in `build_llm_prompt()`
+- If a field value is wrong → add an explicit rule with the correct value/format
+- If the endpoint sequence is wrong → add or fix the flow description
+
+### Step 4 — Deploy and resubmit
+```bash
+# On Cloud Shell
+cd ~/nm-ai-2026 && git pull && cd task1-Tripletex && gcloud run deploy tripletex-agent \
+  --source . --region europe-north1 --allow-unauthenticated --memory 2Gi --timeout 300 --min-instances 1
+```
+Then resubmit to the validator for the same task type to confirm the fix.
+
+### Known task types and status
+| Task type | Status | Notes |
+|---|---|---|
+| Create employee | ✅ Working | Confirmed in sandbox |
+| Delete travel expense | ✅ Working | Confirmed in sandbox |
+| Create order | ✅ Fixed (PR #8) | Was 422 missing deliveryDate |
+| Create travel expense | ✅ Fixed (PR #8) | Was 422 wrong field names |
+| Order → invoice | ⚠️ Untested live | Sandbox blocked by missing bank account |
+| Register invoice payment | ⚠️ Untested live | Depends on invoice |
+| Issue credit note | ⚠️ Untested live | Depends on invoice |
+| Create project | ⚠️ Untested | Needs projectManager.id from GET /employee |
+| Create customer | ⚠️ Untested | Should be simple (only `name` required) |
+| Ledger voucher | ⚠️ Untested | Complex — needs account IDs from GET /ledger/account |
+
+---
+
+## 13. IMPORTANT NOTES FOR NEW AI ASSISTANT
 
 - **Deploy is done from Cloud Shell** (not VS Code terminal) due to IAM permissions
 - **Port 8080 is taken by JupyterLab** on the Workbench VM — use 8082 for local testing

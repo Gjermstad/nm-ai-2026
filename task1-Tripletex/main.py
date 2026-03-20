@@ -205,20 +205,23 @@ def execute_calls(calls: list, responses: list, base_url: str, session_token: st
                 json=body, params=params,
                 timeout=30,
             )
+            tlx_id = r.headers.get("x-tlx-request-id", "")
             if r.status_code == 403:
-                logger.error("CALL %d: 403 Forbidden — invalid/expired token, aborting", i)
+                logger.error("CALL %d: 403 Forbidden — invalid/expired token, aborting | tlx-id=%s", i, tlx_id)
                 break
             if r.status_code == 429:
-                logger.error("CALL %d: 429 Too Many Requests — rate limit hit, aborting", i)
+                logger.error("CALL %d: 429 Too Many Requests — rate limit hit, aborting | tlx-id=%s", i, tlx_id)
                 break
             if r.status_code == 204:
                 logger.info("CALL %d: 204 No Content", i)
                 responses.append({})
             else:
                 resp_json = r.json()
+                body_rid = resp_json.get("requestId", "") if isinstance(resp_json, dict) else ""
+                rid = tlx_id or body_rid
                 logger.info("CALL %d: %d | %s", i, r.status_code, json.dumps(resp_json)[:400])
                 if r.status_code in (409, 422):
-                    logger.error("CALL %d %d: %s", i, r.status_code, json.dumps(resp_json)[:400])
+                    logger.error("CALL %d %d | tlx-id=%s | %s", i, r.status_code, rid, json.dumps(resp_json)[:400])
                     errors_422.append({
                         "step": len(responses),
                         "status": r.status_code,
@@ -226,7 +229,7 @@ def execute_calls(calls: list, responses: list, base_url: str, session_token: st
                         "error": resp_json,
                     })
                 elif r.status_code >= 400:
-                    logger.error("CALL %d ERROR %d: %s", i, r.status_code, r.text[:400])
+                    logger.error("CALL %d ERROR %d | tlx-id=%s | %s", i, r.status_code, rid, r.text[:400])
                 responses.append(resp_json)
         except Exception as e:
             logger.error("CALL %d exception: %s", i, e)
@@ -405,7 +408,7 @@ def build_repair_prompt(original_prompt: str, today: str, responses: list, error
         )
     error_section = "\n".join(error_lines)
 
-    return f"""You are a Tripletex accounting API expert. Some API calls failed with 422 validation errors.
+    return f"""You are a Tripletex accounting API expert. Some API calls failed with validation or conflict errors (422 or 409).
 Generate ONLY the corrected replacement calls needed to fix these failures.
 
 ORIGINAL TASK: "{original_prompt}"
@@ -472,9 +475,9 @@ async def solve(req: SolveRequest):
     responses  = []
     errors_422 = execute_calls(calls, responses, base_url, session_token, deadline)
 
-    # --- One repair pass for 422 validation errors ---
+    # --- One repair pass for 422 validation errors and 409 version conflicts ---
     if errors_422 and (deadline - time.time()) > 40:
-        logger.info("Attempting repair pass for %d 422 error(s)", len(errors_422))
+        logger.info("Attempting repair pass for %d error(s) (422/409)", len(errors_422))
         repair_prompt = build_repair_prompt(prompt, today, responses, errors_422)
         try:
             raw_repair   = call_llm(repair_prompt, deadline)
