@@ -34,7 +34,14 @@ We successfully ran a script that performed these critical steps:
 - Cloud Storage: The bucket gs://ai-nm26osl-1730-nmd-dataset/ was created.
 - Data Transfer: Initiated the upload of the 1GB dataset/ folder to the storage bucket via gcloud storage cp.
 ## 5. Pending Next Steps
-- Verify Upload: Check bucket contents once gcloud storage cp finishes.
-- Cleanup: Remove the local dataset/ folder from Cloud Shell (5GB limit) once confirmed in the bucket.
-- Training Setup: Determine the training environment (likely Vertex AI Workbench or a Compute Engine VM with an NVIDIA L4/T4 GPU).
-- Inference Script: Develop run.py (the submission entry point) which must process images from --input and save a JSON to --output.
+- **Provision Training VM**: Create a Compute Engine VM with an NVIDIA L4 GPU to match the competition sandbox environment.
+- **Train Model**: SSH into the VM, download the dataset from GCS, and run the training script (`train.py`) to produce `best.pt`.
+- **Package Submission**: Create the final `submission.zip` containing `run.py` and the trained `best.pt`.
+
+## 6. Training Plan
+- **Environment**: Google Compute Engine VM (`yolo-training-vm`).
+- **Instance Type**: `g2-standard-4` with one `NVIDIA L4` GPU.
+- **Location**: `europe-north1-a`.
+- **Training Script**: `train.py` will be used to train a `YOLOv8l` model.
+- **Data Source**: The `dataset/` folder will be copied from GCS to the VM's local disk for faster training I/O.
+- **Goal**: Produce a `best.pt` model file to be used by `run.py`.
