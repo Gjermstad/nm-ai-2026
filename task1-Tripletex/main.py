@@ -263,11 +263,36 @@ POST /invoice:
   REQUIRED: invoiceDate, invoiceDueDate, orders: [{{"id": ORDER_ID}}]
   Use dates from the prompt; default to "{today}" if not specified.
 
+POST /product:
+  REQUIRED: name
+  Optional: costExcludingVatCurrency (unit cost), priceExcludingVatCurrency (sale price)
+
 POST /travelExpense:
   REQUIRED: employee ({{"id": ID}}), description, startDate ("YYYY-MM-DD"), endDate ("YYYY-MM-DD")
 
+PUT /travelExpense/{{id}}:
+  REQUIRED: version (from GET), employee, description, startDate, endDate
+  Flow: GET /travelExpense → PUT /travelExpense/$responses.0.values.0.id
+  body must include: "version": "$responses.0.values.0.version"
+
 DELETE /travelExpense/{{id}}:
   GET /travelExpense first, then DELETE /travelExpense/$responses.N.values.0.id
+
+=== ADVANCED PATTERNS (Tier 2/3) ===
+
+Register invoice payment:
+  GET /invoice?invoiceDateFrom=2020-01-01&invoiceDateTo=2030-12-31 → find invoice id
+  POST /invoice/$responses.0.values.0.id/payment
+  body: {{"paymentDate": "YYYY-MM-DD", "paidAmount": <amount>, "paymentTypeId": 1}}
+
+Issue credit note (kreditnota):
+  GET /invoice to find the invoice → POST /invoice/$responses.0.values.0.id/creditNote
+  body: {{"date": "YYYY-MM-DD", "comment": "..."}}
+
+Ledger voucher (bilag):
+  POST /ledger/voucher
+  body: {{"date": "YYYY-MM-DD", "description": "...", "vouchers": [{{"account": {{"id": ACCT_ID}}, "amount": 0}}]}}
+  GET /ledger/account to find account IDs by number (e.g. params: {{"number": "1500"}})
 
 === PLACEHOLDER SYNTAX ===
 "$responses.N.value.id"         -> id from POST/PUT response at step N
