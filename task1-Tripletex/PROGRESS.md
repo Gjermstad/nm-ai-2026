@@ -73,11 +73,27 @@ Tested against deployed agent with sandbox credentials:
 | Order → invoice | ⚠️ Untestable in sandbox | Sandbox company has no bank account configured — 422 from Tripletex. Expected to work in validator env. |
 | Register payment / credit note | ⚠️ Untestable in sandbox | Depends on invoice creation — same sandbox limitation. |
 
-## 5. What still needs to be done
+## 5. Validator task types seen (live, 2026-03-21)
 
-1. **Redeploy** — PRs #8 and #9 are merged; pull and redeploy from Cloud Shell
-2. **Submit to validator and gather logs** — most impactful next step; identify which task types fail and why
-3. **Prompt tuning from validator logs** — tighten field instructions for whichever task types are failing
+Note on T1/T2: the leaderboard columns T1/T2/T3 are the three competition tasks (Tripletex, NorgesGruppen, Astar Island) — not sub-tiers within Tripletex. "Tier" below refers to internal difficulty (Tier 1 = simple CRUD, Tier 2 = multi-step/action endpoints, Tier 3 = ledger/complex).
+
+| # | Prompt (language) | Result | Points | Tier | Root cause of failure |
+|---|---|---|---|---|---|
+| 1 | Credit note for Luna SL — "Almacenamiento en la nube" 31750 NOK (Spanish) | ✅ 5/5 | 8/8 | 2 | — |
+| 2 | Create and send invoice to Fjelltopp AS, 42600 NOK, Nettverksteneste (Nynorsk) | ❌ 0/5 | 0/7 | 2 | Validator Tripletex company has no bank account registered → 422 on `PUT /order/:invoice` |
+| 3 | Set fixed price 429500 NOK on project "ERP-implementering" for Elvdal AS, invoice 33% as partial payment (Nynorsk) | ⚠️ 1/4 | 2/8 | 3 | Bank account 422 on invoice; project fixed-price update requires BETA endpoint (403) |
+
+**Patterns observed:**
+- Credit notes on existing invoices → works perfectly (no bank account needed for reversals)
+- Creating new invoices → consistently fails with `"Faktura kan ikke opprettes før selskapet har registrert et bankkontonummer"` — validator environment issue, not our code
+- Repair pass correctly gives up (`{"calls": []}`) when error is unrecoverable
+- One repair pass used `"path"` instead of `"endpoint"` → fixed in PR #11
+
+## 6. What still needs to be done
+
+1. **Merge PR #11 and redeploy** — fixes `"path"` vs `"endpoint"` in repair output
+2. **Keep submitting** — hit as many of the 30 task types as possible; each new type is a scoring opportunity
+3. **Prompt tuning from new logs** — update this table as new task types come in and fix any new failure patterns
 
 ## 6. Key technical details
 
