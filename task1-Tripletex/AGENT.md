@@ -5,6 +5,14 @@
 
 ---
 
+## 0. PREFERENCES
+- Do not merge bash commands together if they are to different things. If you are to commit and also deplay, make it two steps with separate code boxes.
+- When coding keep variable names and code readable for humans. Use rather full words than shortening them.
+- Comment effectively so it is possible for a human to read what is going on in the code.
+- Every time you have made changes, update AGENT.md and PROGRESS.md so they don't fall behind and get outdated.
+
+---
+
 ## 1. COMPETITION CONTEXT
 
 - **Competition:** NM i AI 2026
