@@ -3,9 +3,9 @@ from collections import defaultdict
 from pathlib import Path
 
 # --- Configuration ---
-JSON_FILE = Path("annotations.json")
-OUTPUT_LABELS_DIR = Path("labels")
-DATA_YAML_FILE = Path("data.yaml")
+JSON_FILE = Path("dataset/train/annotations.json")
+OUTPUT_LABELS_DIR = Path("dataset/train/labels")
+DATA_YAML_FILE = Path("dataset/train/data.yaml")
 
 def main():
     # 1. Create the output directory using pathlib (os module is banned in sandbox)
