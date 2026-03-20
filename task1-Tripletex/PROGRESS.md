@@ -80,14 +80,18 @@ Note on T1/T2: the leaderboard columns T1/T2/T3 are the three competition tasks 
 | # | Prompt (language) | Result | Points | Tier | Root cause of failure |
 |---|---|---|---|---|---|
 | 1 | Credit note for Luna SL — "Almacenamiento en la nube" 31750 NOK (Spanish) | ✅ 5/5 | 8/8 | 2 | — |
-| 2 | Create and send invoice to Fjelltopp AS, 42600 NOK, Nettverksteneste (Nynorsk) | ❌ 0/5 | 0/7 | 2 | Validator Tripletex company has no bank account registered → 422 on `PUT /order/:invoice` |
-| 3 | Set fixed price 429500 NOK on project "ERP-implementering" for Elvdal AS, invoice 33% as partial payment (Nynorsk) | ⚠️ 1/4 | 2/8 | 3 | Bank account 422 on invoice; project fixed-price update requires BETA endpoint (403) |
+| 2 | Create and send invoice to Fjelltopp AS, 42600 NOK, Nettverksteneste (Nynorsk) | ❌ 0/5 | 0/7 | 2 | Bank account 422 on `PUT /order/:invoice` — validator env issue |
+| 3 | Set fixed price 429500 NOK on project "ERP-implementering" for Elvdal AS, invoice 33% (Nynorsk) | ⚠️ 1/4 | 2/8 | 3 | Bank account 422 on invoice; project fixed-price = BETA (403) |
+| 4 | Register payment on Brattli AS invoice, 31300 NOK "Konsulenttimer" (Norwegian) | ⚠️ 1/2 | 2/7 | 2 | GET /invoice missing `invoiceDateFrom`/`invoiceDateTo` → 422 → unresolved placeholder → 404 on payment |
+| 5 | Reverse bank return — Lysgård AS, 15600 NOK "Konsulenttimer" → reinstate invoice (Norwegian) | ⚠️ 1/3 | 2/8 | 2 | Same GET /invoice date params missing; repair used `"path"` instead of `"endpoint"` |
+| 6 | Create order + invoice + payment for Waldstein GmbH, Netzwerkdienst + Beratungsstunden (German) | ⚠️ 3/5 | 4/8 | 2 | Invoice creation worked ✅; payment 404 because `paidAmount` placeholder not resolved in params (bug fixed PR #12) |
 
 **Patterns observed:**
-- Credit notes on existing invoices → works perfectly (no bank account needed for reversals)
-- Creating new invoices → consistently fails with `"Faktura kan ikke opprettes før selskapet har registrert et bankkontonummer"` — validator environment issue, not our code
-- Repair pass correctly gives up (`{"calls": []}`) when error is unrecoverable
-- One repair pass used `"path"` instead of `"endpoint"` → fixed in PR #11
+- Credit notes on existing invoices → works perfectly ✅
+- Creating new invoices → sometimes fails with bank account 422 (validator env), sometimes works (task #6)
+- `GET /invoice` always requires `invoiceDateFrom` + `invoiceDateTo` — Gemini keeps omitting them → fixed in PR #12
+- `params` placeholders (e.g. `paidAmount: "$responses.N.value.amountCurrency"`) were never resolved → fixed in PR #12
+- Repair pass using `"path"` or `"url"` instead of `"endpoint"` → fixed in PR #11
 
 ## 6. What still needs to be done
 
