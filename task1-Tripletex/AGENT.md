@@ -1,7 +1,7 @@
 # AGENT.md — Task 1: Tripletex AI Accounting Agent
 > NM i AI 2026 — Solo competitor, frontend student (Kristiania, 6th semester)
 > Last updated: 2026-03-20 ~01:30 CET
-> Status: Single-shot planner deployed, 0 score. Switching to Vertex AI + ReAct loop.
+> Status: Hybrid Repair agent deployed (single-shot + 422 repair pass). Vertex AI gemini-2.5-flash.
 
 ---
 
@@ -51,31 +51,26 @@ cd ~/nm-ai-2026/task1-Tripletex && gcloud run deploy tripletex-agent \
 
 ---
 
-## 3. LLM CHOICE: GEMINI 2.5 PRO via Google AI Studio API
+## 3. LLM CHOICE: GEMINI 2.5 FLASH via Vertex AI (global endpoint)
 
 ### What we use
-- **Model:** `gemini-2.5-pro` via REST API
-- **Endpoint:** `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent`
-- **Auth:** API key via env var `GEMINI_API_KEY`
-- **Key:** `AIzaSyB2i2RZ8rhXy8DznjhGbOeUU6ZIzZZddSE`
+- **Model:** `gemini-2.5-flash` via Vertex AI REST API
+- **Endpoint:** `https://aiplatform.googleapis.com/v1/projects/ai-nm26osl-1730/locations/global/publishers/google/models/gemini-2.5-flash:generateContent`
+- **Auth:** GCP service account (metadata server) — no API key needed on Cloud Run
 
-### Why Gemini 2.5 Pro (not other options)
+### Model history
 | Option | Status | Reason |
 |---|---|---|
-| Vertex AI `gemini-2.0-flash-001` | ❌ Abandoned | Model not found in `europe-west4` — got 404 error on first submission |
-| Vertex AI SDK | ❌ Abandoned | Deprecation warnings, model access issues, more complex setup |
-| Google AI Studio REST API | ✅ Current | Simple, reliable, free, no project-level model access issues |
+| Vertex AI `gemini-2.0-flash-001` | ❌ Abandoned | Model not found in `europe-west4` — 404 on first submission |
+| Vertex AI SDK | ❌ Abandoned | Deprecation warnings, model access issues |
+| Google AI Studio REST API (`gemini-2.5-pro`) | ❌ Abandoned | Was used temporarily; replaced by Vertex AI global |
+| Vertex AI global endpoint `gemini-2.5-flash` | ✅ **Current** | No API key, service account auth, works in Cloud Run |
 | Claude API | ❌ Not used | Not available in GCP free tier setup |
-| OpenAI | ❌ Not used | Costs money |
-| Vertex AI global endpoint | ✅ TO TRY | Use location="global" or "us-central1", 
-  no API key needed — Cloud Run service account has permissions automatically |
 
 ### Local testing note
-When testing locally on the VM, you MUST set the env var manually:
-```bash
-export GEMINI_API_KEY=AIzaSyB2i2RZ8rhXy8DznjhGbOeUU6ZIzZZddSE
-```
-Cloud Run has it set via `--set-env-vars`. Locally it is NOT set by default.
+On the Workbench VM, the metadata server is not available. To test locally you must either:
+- Use a service account key and `GOOGLE_APPLICATION_CREDENTIALS`, or
+- Test via a deployed Cloud Run instance
 
 ---
 
@@ -138,38 +133,31 @@ PUT /employee: must include version field from GET response
 
 ## 5. AGENT ARCHITECTURE
 
-### Current architecture: ReAct Agentic Loop
-
-The agent uses a **ReAct (Reason + Act)** pattern:
+### Current architecture: Hybrid Repair (single-shot + one 422 repair pass)
 
 ```
-Prompt → Gemini → "Make API call X" → Execute call → See result → Gemini → "Make API call Y" → ... → "done"
+Prompt → Gemini → full call plan → execute all → if 422 errors → Gemini repair → execute corrections → done
 ```
 
-**Why ReAct instead of single-shot planning:**
-- Single-shot: Gemini plans ALL calls upfront, cannot recover from errors
-- ReAct: Gemini sees each API response, can read error messages and fix them
-- Example: If POST /employee returns 422 "missing field", ReAct agent reads the error and retries with the missing field. Single-shot agent gives up.
-- Result: Handles all task types automatically, including ones not seen before
+**Why Hybrid Repair instead of full ReAct:**
+- Full ReAct: one LLM call per API call — high latency, risks hitting 300s timeout on complex tasks
+- Single-shot only: no recovery from validation errors
+- Hybrid Repair: one planning call + one optional correction call; handles the most common failure mode (422 missing/wrong fields) without multiple round-trips
 
-### Conversation structure
-Each step appends to a conversation history:
-1. System prompt (API reference, rules, output format)
-2. User: task description
-3. Model: JSON action (`{"method": "POST", "endpoint": "/employee", "body": {...}}`)
-4. User: API response + "what next?"
-5. Model: next JSON action or `{"action": "done"}`
-6. Repeat until `done` or MAX_STEPS (15)
+**Parse failure retry:** If the LLM output is not valid JSON, one corrective prompt is sent before giving up.
 
 ### Key implementation decisions
 | Decision | Choice | Why |
 |---|---|---|
-| Max steps | 15 | Complex tasks need ~5-8 steps, 15 gives safety margin within 300s timeout |
-| Temperature | 0.1 | Low temperature = more consistent JSON output, less hallucination |
-| Max output tokens | 2048 | Enough for JSON + reasoning, not wasteful |
-| JSON parsing | regex + json.loads | Gemini sometimes wraps in markdown fences despite instructions |
-| Error handling | Log and continue | Agent receives error as API response, can self-correct |
-| 204 responses | Return `{}` | DELETE and some PUTs return no body |
+| Repair trigger | 422 only | 404/401/400 are not fixable by re-prompting; only 422 validation errors are |
+| Repair guard | >40s remaining | Avoids triggering repair when there's no time left |
+| Max API calls | 12 | Hard cap for efficiency bonus; complex tasks need ~5–8 calls |
+| Timeout budget | 255s deadline | 300s limit − 45s buffer; checked before every LLM and API call |
+| Temperature | 0.1 | Low temperature = more consistent JSON output |
+| Max output tokens | 8192 | Allows full multi-step plans in one response |
+| JSON parsing | regex + json.loads + DOTALL fallback | Gemini sometimes wraps output in markdown fences |
+| 204 responses | Append `{}` | DELETE and some PUTs return no body |
+| 403 response | Abort immediately | Invalid/expired token — no point continuing |
 
 ---
 
@@ -242,42 +230,38 @@ The validator POSTs to `/solve` with this structure:
 ## 9. CURRENT main.py OVERVIEW
 
 The current agent (`main.py`) does:
-1. Receives `/solve` POST request
-2. Builds a system prompt with full Tripletex API reference
-3. Enters ReAct loop (max 15 steps):
-   - Calls Gemini 2.5 Pro with conversation history
-   - Parses JSON action from response
-   - Executes API call against Tripletex
-   - Feeds result back to Gemini
-   - Stops when Gemini returns `{"action": "done"}`
-4. Returns `{"status": "completed"}`
+1. Receives `/solve` POST request; sets a 255s deadline
+2. Decodes any attached files (PDFs extracted via `pypdf`, others noted by name)
+3. Builds a single planning prompt with task, date, file context, and full API reference
+4. Calls Gemini once → parses full call plan (with one parse-failure retry)
+5. Executes all API calls sequentially via `execute_calls()`; stops on 403 or deadline/call-cap
+6. If any calls returned 422, calls Gemini once more with error context → executes corrected calls
+7. Returns `{"status": "completed"}`
 
-### What the system prompt tells Gemini
-- All endpoint signatures with required fields
-- Placeholder syntax for chaining responses
-- Rules (always GET /department first for employees, etc.)
-- Output format (single JSON object per turn)
-- Error recovery instructions (read 422 errors and fix)
+### What the planning prompt tells Gemini
+- All endpoint signatures with required fields (POST + PUT for employee, customer, travelExpense; product, project, order, invoice, department)
+- Advanced patterns: invoice payment, credit note, ledger voucher
+- Placeholder syntax for chaining responses (`$responses.N.value.FIELD`, `$responses.N.values.INDEX.FIELD`)
+- Rules (always GET /department first for employees, always include version for PUT, etc.)
+- Output format (single JSON object with `calls` array)
 
 ---
 
 ## 10. WHAT TO IMPROVE NEXT
 
 ### High priority
-1. **Test and verify the ReAct loop works end-to-end** — hasn't been fully tested yet with real sandbox credentials due to env var issue locally
-2. **Add `--min-instances 1`** to prevent cold starts during active judging windows
-3. **Log the full prompt** from validator to understand which task types are being sent
-4. **Handle more task types** — ensure system prompt covers all 30 task types
+1. **Sandbox smoke test** — test employee create, invoice, travel expense delete against sandbox to confirm scores
+2. **Add `--min-instances 1`** — prevents cold starts during active judging windows (add to deploy command)
+3. **Submit and observe** — gather logs from real validator runs to see which task types are being sent and which checks fail
 
 ### Medium priority
-5. **Retry logic** — if Gemini returns unparseable JSON, retry up to 3 times
-6. **Token efficiency** — truncate long API responses before feeding back to Gemini (currently 1000 chars)
-7. **Parallel submissions** — submit multiple times to hit more unique task types and build score
+4. **Parallel submissions** — submit multiple times to hit more unique task types and build score across all 30
+5. **Prompt tuning from failures** — read validator logs, identify which fields are wrong, tighten prompt for those task types
+6. **Gemini JSON mode** — use `responseMimeType: "application/json"` in generationConfig to guarantee valid JSON output and eliminate parse failures
 
 ### Low priority (nice to have)
-8. **Structured output** — use Gemini's JSON mode to guarantee valid JSON output
-9. **Tool calling** — use Gemini's native function calling instead of parsing JSON from text
-10. **File handling** — the request schema supports `files` (base64 attachments) but agent ignores them
+7. **Tool calling** — use Gemini's native function calling instead of parsing JSON from text
+8. **Structured output schema** — pass a JSON schema to Gemini to constrain the calls array format
 
 ---
 
