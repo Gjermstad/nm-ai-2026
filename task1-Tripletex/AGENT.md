@@ -1,7 +1,7 @@
 # AGENT.md — Task 1: Tripletex AI Accounting Agent
 > NM i AI 2026 — Solo competitor, frontend student (Kristiania, 6th semester)
 > Last updated: 2026-03-20 ~01:30 CET
-> Status: Agent deployed, ReAct loop implemented, awaiting first successful score
+> Status: Single-shot planner deployed, 0 score. Switching to Vertex AI + ReAct loop.
 
 ---
 
