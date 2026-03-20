@@ -252,7 +252,7 @@ The validator POSTs to `/solve` with this structure:
 - Our best score: 0 (all submissions failed due to bugs — deliveryDate + travelExpense fields fixed in PR #8)
 - 30 unique task types exist total
 - Score is sum of best per task type — so each unique task type is a new opportunity
-- T3 (Astar Island) = 0.0 for all teams visible — Tripletex (T1+T2) is where scores are being made
+- T3 (Astar Island) not yet open — opens Saturday March 21 (exact time unknown); competition ends Sunday March 22 15:00 CET
 
 ---
 
