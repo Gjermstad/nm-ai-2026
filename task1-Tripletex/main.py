@@ -276,11 +276,21 @@ POST /project:
 
 POST /order:
   REQUIRED: customer ({{"id": ID}}), orderDate ("{today}")
-  orderLines: [{{"description": "...", "count": 1, "unitPriceExcludingVatCurrency": 1000}}]
+  orderLines: [{{"description": "...", "count": 1, "unitPriceExcludingVatCurrency": 1000, "vatType": {{"id": 3}}}}]
+  VAT note: by default use unitPriceExcludingVatCurrency. If isPrioritizeAmountsIncludingVat is true on the order,
+  use unitPriceIncludingVatCurrency instead. vatType id 3 = standard Norwegian VAT (25%).
 
-POST /invoice:
-  REQUIRED: invoiceDate, invoiceDueDate, orders: [{{"id": ORDER_ID}}]
+PUT /order/{{id}}/:invoice  (convert an existing order to a paid or unpaid invoice — preferred for single-order invoice):
+  REQUIRED query params: invoiceDate=YYYY-MM-DD
+  Optional query params: sendToCustomer=false (default — do NOT send unless prompt explicitly says to send)
+  Flow: GET /order or use existing order id → PUT /order/$responses.N.value.id/:invoice?invoiceDate={today}&sendToCustomer=false
+  Returns the created invoice in the response body.
+
+POST /invoice  (alternative — create invoice directly linking one or more orders):
+  REQUIRED body fields: invoiceDate, invoiceDueDate, orders: [{{"id": ORDER_ID}}]
+  REQUIRED query param: sendToCustomer=false (do NOT send unless prompt explicitly says to send)
   Use dates from the prompt; default to "{today}" if not specified.
+  Example: {{"method": "POST", "endpoint": "/invoice", "params": {{"sendToCustomer": "false"}}, "body": {{...}}}}
 
 POST /product:
   REQUIRED: name
@@ -299,14 +309,23 @@ DELETE /travelExpense/{{id}}:
 
 === ADVANCED PATTERNS (Tier 2/3) ===
 
-Register invoice payment:
-  GET /invoice?invoiceDateFrom=2020-01-01&invoiceDateTo=2030-12-31 → find invoice id
-  POST /invoice/$responses.0.values.0.id/payment
-  body: {{"paymentDate": "YYYY-MM-DD", "paidAmount": <amount>, "paymentTypeId": 1}}
+Register invoice payment (betaling på faktura):
+  All parameters are QUERY PARAMS — there is no request body for this endpoint.
+  Step 1: GET /invoice with params e.g. {{"invoiceDateFrom": "2020-01-01", "invoiceDateTo": "2030-12-31", "fields": "id,invoiceNumber,amountCurrency"}} to find the invoice id.
+  Step 2: PUT /invoice/$responses.0.values.0.id/:payment
+    REQUIRED query params: paymentDate=YYYY-MM-DD, paymentTypeId=1, paidAmount=<amount>
+    Optional query params: paidAmountCurrency=<amount in foreign currency>
+  Example call: {{"method": "PUT", "endpoint": "/invoice/$responses.0.values.0.id/:payment",
+    "params": {{"paymentDate": "{today}", "paymentTypeId": "1", "paidAmount": "1000"}}}}
 
-Issue credit note (kreditnota):
-  GET /invoice to find the invoice → POST /invoice/$responses.0.values.0.id/creditNote
-  body: {{"date": "YYYY-MM-DD", "comment": "..."}}
+Issue credit note (kreditnota / kreditfaktura):
+  All parameters are QUERY PARAMS — there is no request body for this endpoint.
+  Step 1: GET /invoice to find the invoice id (same as payment above).
+  Step 2: PUT /invoice/$responses.0.values.0.id/:createCreditNote
+    REQUIRED query params: date=YYYY-MM-DD
+    Optional query params: comment=<text>, sendToCustomer=false, sendType=<EMAIL|EHF|...>
+  Example call: {{"method": "PUT", "endpoint": "/invoice/$responses.0.values.0.id/:createCreditNote",
+    "params": {{"date": "{today}", "sendToCustomer": "false"}}}}
 
 Ledger voucher (bilag):
   POST /ledger/voucher
