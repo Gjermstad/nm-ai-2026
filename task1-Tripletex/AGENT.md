@@ -91,26 +91,35 @@ On the Workbench VM, the metadata server is not available. To test locally you m
 - Basic auth: username `"0"`, password = `session_token`
 - `auth=("0", session_token)` in Python requests
 
-### Key endpoints discovered
+### Key endpoints (confirmed from OpenAPI spec at `/v2/openapi.json`)
 ```
-GET  /department          → Always needed first for employee creation (get dept id)
-GET  /employee            → List employees (for project manager, travel expense)
-GET  /customer            → Search customers
-GET  /travelExpense       → List travel expenses
-POST /employee            → Create employee
-POST /customer            → Create customer
-POST /product             → Create product
-POST /order               → Create order (prerequisite for invoice)
-POST /invoice             → Create invoice
-POST /department          → Create department
-POST /project             → Create project
-POST /travelExpense       → Create travel expense
-DELETE /travelExpense/{id}→ Delete travel expense
-PUT  /customer/{id}       → Update customer
-PUT  /employee/{id}       → Update employee (requires version field from GET)
+GET  /department              → Always needed first for employee creation (returns department id)
+GET  /employee                → List employees (use for project manager id, travel expense employee id)
+GET  /customer                → Search customers by name or other fields
+GET  /travelExpense           → List travel expenses (use before PUT or DELETE)
+GET  /invoice                 → List invoices (use before registering payment or issuing credit note)
+GET  /ledger/account          → Look up chart-of-account entries by account number
+GET  /ledger/posting          → Query ledger postings by date range
+POST /employee                → Create employee
+POST /customer                → Create customer
+POST /product                 → Create product
+POST /order                   → Create order with order lines (prerequisite for invoice)
+POST /invoice                 → Create invoice referencing existing order(s)
+POST /department              → Create department
+POST /project                 → Create project
+POST /travelExpense           → Create travel expense report
+POST /ledger/voucher          → Create accounting voucher (bilag)
+PUT  /order/{id}/:invoice     → Convert order to invoice (action endpoint — all params are QUERY PARAMS)
+PUT  /invoice/{id}/:payment   → Register payment on invoice (action endpoint — all params are QUERY PARAMS)
+PUT  /invoice/{id}/:createCreditNote → Issue credit note (action endpoint — all params are QUERY PARAMS)
+PUT  /travelExpense/{id}      → Update travel expense (requires version field from GET)
+PUT  /customer/{id}           → Update customer (requires version field from GET)
+PUT  /employee/{id}           → Update employee (requires version field from GET)
+DELETE /travelExpense/{id}    → Delete travel expense
+DELETE /ledger/voucher/{id}   → Delete/reverse accounting voucher
 ```
 
-### Critical field requirements (learned from failures)
+### Critical field requirements and correctness rules
 ```
 POST /employee REQUIRED: firstName, lastName, userType, email, department.id
   - userType enum: "STANDARD" | "EXTENDED" | "NO_ACCESS"
@@ -121,12 +130,29 @@ POST /employee REQUIRED: firstName, lastName, userType, email, department.id
 POST /customer REQUIRED: name
 
 POST /order REQUIRED: customer.id, orderDate ("YYYY-MM-DD")
+  - orderLines[].unitPriceExcludingVatCurrency: use when isPrioritizeAmountsIncludingVat is false (default)
+  - orderLines[].unitPriceIncludingVatCurrency: use when isPrioritizeAmountsIncludingVat is true on the order
+  - Mixing including/excluding VAT prices on the same order causes 422 errors
 
-POST /invoice REQUIRED: invoiceDate, invoiceDueDate, orders: [{id: ORDER_ID}]
+POST /invoice REQUIRED body: invoiceDate, invoiceDueDate, orders: [{id: ORDER_ID}]
+  REQUIRED query param: sendToCustomer=false (default — do NOT send unless prompt says to)
+
+PUT /order/{id}/:invoice — QUERY PARAMS ONLY, no body:
+  REQUIRED: invoiceDate=YYYY-MM-DD
+  DEFAULT:  sendToCustomer=false
+
+PUT /invoice/{id}/:payment — QUERY PARAMS ONLY, no body:
+  REQUIRED: paymentDate=YYYY-MM-DD, paymentTypeId=1, paidAmount=<number>
+
+PUT /invoice/{id}/:createCreditNote — QUERY PARAMS ONLY, no body:
+  REQUIRED: date=YYYY-MM-DD
+  DEFAULT:  sendToCustomer=false
+
+PUT /employee/{id}: REQUIRED version field from GET — causes 409 Conflict (code 8000) if stale
+PUT /customer/{id}: same — REQUIRED version field from GET
+PUT /travelExpense/{id}: same — REQUIRED version field from GET
 
 POST /project REQUIRED: name, startDate, projectManager.id
-
-PUT /employee: must include version field from GET response
 ```
 
 ---
@@ -149,15 +175,17 @@ Prompt → Gemini → full call plan → execute all → if 422 errors → Gemin
 ### Key implementation decisions
 | Decision | Choice | Why |
 |---|---|---|
-| Repair trigger | 422 only | 404/401/400 are not fixable by re-prompting; only 422 validation errors are |
-| Repair guard | >40s remaining | Avoids triggering repair when there's no time left |
+| Repair trigger | 422 and 409 | 422 = validation error (wrong/missing fields, fixable by re-prompting); 409 code 8000 = stale `version` field on PUT (fixable by re-GET) |
+| Repair guard | >40s remaining | Avoids triggering repair when there's no time left for the extra LLM call |
+| 403 response | Abort immediately | Invalid/expired session token — all subsequent calls would also fail |
+| 429 response | Abort immediately | Rate limit hit — all subsequent calls would also 429 |
+| Malformed calls | Skip with warning | Missing/non-string `method` or `endpoint` — log and continue rather than crash |
 | Max API calls | 12 | Hard cap for efficiency bonus; complex tasks need ~5–8 calls |
-| Timeout budget | 255s deadline | 300s limit − 45s buffer; checked before every LLM and API call |
-| Temperature | 0.1 | Low temperature = more consistent JSON output |
-| Max output tokens | 8192 | Allows full multi-step plans in one response |
-| JSON parsing | regex + json.loads + DOTALL fallback | Gemini sometimes wraps output in markdown fences |
-| 204 responses | Append `{}` | DELETE and some PUTs return no body |
-| 403 response | Abort immediately | Invalid/expired token — no point continuing |
+| Timeout budget | 255s deadline | 300s limit − 45s buffer; checked before every LLM call (needs 30s) and every API call (needs 5s) |
+| Gemini JSON mode | `responseMimeType: application/json` | Constrains Vertex AI output to valid JSON; eliminates most parse failures |
+| Temperature | 0.1 | Low temperature = more consistent, deterministic JSON output |
+| Max output tokens | 8192 | Allows full multi-step plans (10+ calls) in one response |
+| 204 responses | Append `{}` | DELETE and action endpoints return no body |
 
 ---
 
