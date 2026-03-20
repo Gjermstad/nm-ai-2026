@@ -4,7 +4,6 @@ import requests
 import json
 import logging
 import re
-import subprocess
 from typing import List, Optional
 from datetime import date
 
@@ -36,10 +35,13 @@ def health():
     return {"status": "ok"}
 
 def get_access_token() -> str:
-    return subprocess.check_output(
-        ["gcloud", "auth", "application-default", "print-access-token"],
-        text=True
-    ).strip()
+    resp = requests.get(
+        "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token",
+        headers={"Metadata-Flavor": "Google"},
+        timeout=10
+    )
+    resp.raise_for_status()
+    return resp.json()["access_token"]
 
 def call_llm(prompt: str) -> str:
     logger.info("Calling Vertex AI (gemini-2.5-flash, global)...")
