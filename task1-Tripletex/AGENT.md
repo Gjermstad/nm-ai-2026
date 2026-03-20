@@ -247,11 +247,12 @@ The validator POSTs to `/solve` with this structure:
 
 ## 8. SCORING CONTEXT
 
-- Top score on leaderboard: 13.44
-- Our best score: 0 (all submissions failed due to bugs)
-- 2/30 unique task types encountered
+- Top score on leaderboard: 43.95 (websecured.io, 18/30 task types, T1=15.5, T2=28.4)
+- Top teams have 18/30 task types covered, scores clustered 41–44
+- Our best score: 0 (all submissions failed due to bugs — deliveryDate + travelExpense fields fixed in PR #8)
 - 30 unique task types exist total
 - Score is sum of best per task type — so each unique task type is a new opportunity
+- T3 (Astar Island) = 0.0 for all teams visible — Tripletex (T1+T2) is where scores are being made
 
 ---
 
