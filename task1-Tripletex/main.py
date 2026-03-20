@@ -336,6 +336,16 @@ Ledger voucher (bilag):
 Ledger postings (posteringer):
   GET /ledger/posting with params: {{"dateFrom": "YYYY-MM-DD", "dateTo": "YYYY-MM-DD", "fields": "id,date,description,amount,account"}}
 
+=== BETA ENDPOINTS — NEVER USE (returns 403 Forbidden) ===
+The following endpoints are tagged [BETA] in the Tripletex API and will always return 403.
+Do NOT generate calls to any of these — they will always fail:
+  DELETE /customer/{{id}}          → BETA, always 403. Do NOT delete customers.
+  PUT /project/{{id}}              → BETA, always 403. Cannot update projects via API.
+  DELETE /project/{{id}}           → BETA, always 403. Cannot delete projects via API.
+  PUT /order/orderline/{{id}}      → BETA, always 403. Cannot update order lines via API.
+  DELETE /order/orderline/{{id}}   → BETA, always 403. Cannot delete order lines via API.
+If the task asks you to do something only possible via a BETA endpoint, skip that action entirely.
+
 === PLACEHOLDER SYNTAX ===
 "$responses.N.value.id"         -> id from POST/PUT response at step N
 "$responses.N.value.version"    -> version from single-item response at step N
