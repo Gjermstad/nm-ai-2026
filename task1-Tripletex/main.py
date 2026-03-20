@@ -426,9 +426,10 @@ Return ONLY a raw JSON object — no markdown, no explanation:
 """
 
 
-# --- Main endpoint ---
+# --- Main endpoint (also mounted at root for validators that POST to /) ---
 
 @app.post("/solve")
+@app.post("/")
 async def solve(req: SolveRequest):
     deadline = time.time() + MAX_DURATION
     prompt        = req.prompt
