@@ -31,7 +31,7 @@
 - **Service name:** `tripletex-agent`
 - **Memory:** 2Gi
 - **Timeout:** 300s (important — complex tasks need multiple LLM calls)
-- **Min instances:** 0 (cold starts possible — consider `--min-instances 1` during active competition)
+- **Min instances:** 1 during active competition windows (prevents cold starts)
 
 ### Deploy Command
 ```bash
@@ -41,7 +41,7 @@ cd ~/nm-ai-2026/task1-Tripletex && gcloud run deploy tripletex-agent \
   --allow-unauthenticated \
   --memory 2Gi \
   --timeout 300 \
-  --set-env-vars GEMINI_API_KEY=AIzaSyB2i2RZ8rhXy8DznjhGbOeUU6ZIzZZddSE
+  --min-instances 1
 ```
 
 ### GitHub Repo
@@ -274,8 +274,7 @@ ssh gcp-nm-ai
 # Pull latest code
 cd ~/nm-ai-2026 && git pull
 
-# Test locally (remember to export API key first!)
-export GEMINI_API_KEY=AIzaSyB2i2RZ8rhXy8DznjhGbOeUU6ZIzZZddSE
+# Test locally (metadata server unavailable — LLM calls will fail; use for non-LLM testing only)
 cd ~/nm-ai-2026/task1-Tripletex && uvicorn main:app --host 0.0.0.0 --port 8082
 
 # Test curl (sandbox)
@@ -296,7 +295,7 @@ cd ~/nm-ai-2026/task1-Tripletex && gcloud run deploy tripletex-agent \
   --allow-unauthenticated \
   --memory 2Gi \
   --timeout 300 \
-  --set-env-vars GEMINI_API_KEY=AIzaSyB2i2RZ8rhXy8DznjhGbOeUU6ZIzZZddSE
+  --min-instances 1
 
 # Check logs
 gcloud run services logs read tripletex-agent --region europe-north1 --limit 100 --format="text"
@@ -317,7 +316,7 @@ cd ~/nm-ai-2026 && git add -A && git commit -m "your message" && git push
 - **Port 8080 is taken by JupyterLab** on the Workbench VM — use 8082 for local testing
 - **`lsof` is not available** on this VM — use `fuser -k PORT/tcp` to kill processes
 - **`pkill -f uvicorn` kills itself** when run as a background job — start uvicorn in foreground in one terminal, test in another
-- **The GEMINI_API_KEY env var is only set in Cloud Run** — must be exported manually for local testing
+- **Auth uses GCP service account (metadata server)** — LLM calls only work in Cloud Run, not locally on the VM
 - **Validator proxy URL is not resolvable from our Cloud Run** — DNS errors on `tx-proxy.ainm.no` from our side are expected during local testing; the validator's network can resolve it
 - **git push is needed before deploy** — `gcloud run deploy --source .` builds from local files, but always push first to keep repo in sync
 - **main.py must start with `from fastapi`** — if it starts with `cat >` or ends with `EOF`, the file is corrupted and needs to be rewritten
