@@ -149,15 +149,52 @@ def test_executor_aborts_on_403():
     assert len(responses) == 0  # 403 breaks before append
 
 
+def test_executor_aborts_on_429():
+    """429 rate limit should stop execution immediately."""
+    calls = [
+        {"method": "GET", "endpoint": "/employee"},
+        {"method": "GET", "endpoint": "/customer"},  # should never run
+    ]
+    responses = []
+    deadline = time.time() + 60
+
+    call_count = 0
+    def fake_request(**kwargs):
+        nonlocal call_count
+        call_count += 1
+        return _fake_response(429)
+
+    with patch("main.requests.request", fake_request):
+        execute_calls(calls, responses, "http://example.com", "tok", deadline)
+
+    assert call_count == 1
+    assert len(responses) == 0
+
+
 def test_executor_collects_422_errors():
-    """422 responses are returned in the errors list."""
+    """422 responses are returned in the errors list with status field."""
     calls = [{"method": "POST", "endpoint": "/employee", "body": {}}]
     responses = []
     deadline = time.time() + 60
-    error_body = {"validationMessages": [{"message": "missing firstName"}]}
+    error_body = {"validationMessages": [{"field": "firstName", "message": "missing firstName"}]}
 
     with patch("main.requests.request", return_value=_fake_response(422, error_body)):
         errors = execute_calls(calls, responses, "http://example.com", "tok", deadline)
 
     assert len(errors) == 1
     assert errors[0]["call"]["endpoint"] == "/employee"
+    assert errors[0]["status"] == 422
+
+
+def test_executor_collects_409_errors():
+    """409 revision conflicts are included in the repair list."""
+    calls = [{"method": "PUT", "endpoint": "/employee/42", "body": {"version": 1}}]
+    responses = []
+    deadline = time.time() + 60
+    error_body = {"status": 409, "code": 8000, "message": "Revision exception"}
+
+    with patch("main.requests.request", return_value=_fake_response(409, error_body)):
+        errors = execute_calls(calls, responses, "http://example.com", "tok", deadline)
+
+    assert len(errors) == 1
+    assert errors[0]["status"] == 409

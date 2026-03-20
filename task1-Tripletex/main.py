@@ -208,16 +208,20 @@ def execute_calls(calls: list, responses: list, base_url: str, session_token: st
             if r.status_code == 403:
                 logger.error("CALL %d: 403 Forbidden — invalid/expired token, aborting", i)
                 break
+            if r.status_code == 429:
+                logger.error("CALL %d: 429 Too Many Requests — rate limit hit, aborting", i)
+                break
             if r.status_code == 204:
                 logger.info("CALL %d: 204 No Content", i)
                 responses.append({})
             else:
                 resp_json = r.json()
                 logger.info("CALL %d: %d | %s", i, r.status_code, json.dumps(resp_json)[:400])
-                if r.status_code == 422:
-                    logger.error("CALL %d 422: %s", i, json.dumps(resp_json)[:400])
+                if r.status_code in (409, 422):
+                    logger.error("CALL %d %d: %s", i, r.status_code, json.dumps(resp_json)[:400])
                     errors_422.append({
                         "step": len(responses),
+                        "status": r.status_code,
                         "call": call,
                         "error": resp_json,
                     })
@@ -359,8 +363,9 @@ def build_repair_prompt(original_prompt: str, today: str, responses: list, error
     error_lines = []
     for e in errors_422:
         call = e["call"]
+        hint = "(version conflict — re-GET to get current version)" if e.get("status") == 409 else "(validation error — fix missing/wrong fields)"
         error_lines.append(
-            f"  Step {e['step']}: {call['method']} {call['endpoint']}\n"
+            f"  Step {e['step']}: {call['method']} {call['endpoint']} → HTTP {e.get('status', 422)} {hint}\n"
             f"    body: {json.dumps(call.get('body', {}))[:300]}\n"
             f"    error: {json.dumps(e['error'])[:400]}"
         )
