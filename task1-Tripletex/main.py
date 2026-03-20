@@ -275,7 +275,8 @@ POST /project:
   REQUIRED: name, startDate ("YYYY-MM-DD"), projectManager ({{"id": EMPLOYEE_ID}})
 
 POST /order:
-  REQUIRED: customer ({{"id": ID}}), orderDate ("{today}")
+  REQUIRED: customer ({{"id": ID}}), orderDate ("{today}"), deliveryDate ("{today}")
+  deliveryDate: always include — use the same value as orderDate unless the prompt specifies otherwise.
   orderLines: [{{"description": "...", "count": 1, "unitPriceExcludingVatCurrency": 1000, "vatType": {{"id": 3}}}}]
   VAT note: by default use unitPriceExcludingVatCurrency. If isPrioritizeAmountsIncludingVat is true on the order,
   use unitPriceIncludingVatCurrency instead. vatType id 3 = standard Norwegian VAT (25%).
@@ -297,10 +298,14 @@ POST /product:
   Optional: costExcludingVatCurrency (unit cost), priceExcludingVatCurrency (sale price)
 
 POST /travelExpense:
-  REQUIRED: employee ({{"id": ID}}), description, startDate ("YYYY-MM-DD"), endDate ("YYYY-MM-DD")
+  REQUIRED: employee ({{"id": ID}})
+  Optional: title ("short description"), date ("YYYY-MM-DD"),
+            travelDetails ({{"isForeignTravel": false, "departureDate": "YYYY-MM-DD", "returnDate": "YYYY-MM-DD"}})
+  NOTE: field is "title" not "description"; dates go inside travelDetails, NOT at top level.
 
 PUT /travelExpense/{{id}}:
-  REQUIRED: version (from GET), employee, description, startDate, endDate
+  REQUIRED: version (from GET), employee
+  Optional: title, date, travelDetails
   Flow: GET /travelExpense → PUT /travelExpense/$responses.0.values.0.id
   body must include: "version": "$responses.0.values.0.version"
 
