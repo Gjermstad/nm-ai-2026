@@ -67,6 +67,8 @@ cd ~/nm-ai-2026/task1-Tripletex && gcloud run deploy tripletex-agent \
 | Google AI Studio REST API | ✅ Current | Simple, reliable, free, no project-level model access issues |
 | Claude API | ❌ Not used | Not available in GCP free tier setup |
 | OpenAI | ❌ Not used | Costs money |
+| Vertex AI global endpoint | ✅ TO TRY | Use location="global" or "us-central1", 
+  no API key needed — Cloud Run service account has permissions automatically |
 
 ### Local testing note
 When testing locally on the VM, you MUST set the env var manually:
