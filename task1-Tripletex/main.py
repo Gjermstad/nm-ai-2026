@@ -90,9 +90,11 @@ def call_llm(prompt: str, deadline: float) -> str:
 #   $responses.N.value.FIELD           — single-item response (POST/PUT/GET single)
 #   $responses.N.value.FIELD.SUBFIELD  — nested object, e.g. value.voucher.id
 #   $responses.N.values.INDEX.FIELD    — list response (GET list)
-_VALUE_NESTED_RE = re.compile(r'\$responses\.(\d+)\.value\.(\w+)\.(\w+)')
-_VALUE_RE        = re.compile(r'\$responses\.(\d+)\.value\.(\w+)')
-_VALUES_RE       = re.compile(r'\$responses\.(\d+)\.values\.(\d+)\.(\w+)')
+#   $responses.N.values.INDEX.FIELD.SUBFIELD — nested field within a list item, e.g. values.0.account.name
+_VALUE_NESTED_RE  = re.compile(r'\$responses\.(\d+)\.value\.(\w+)\.(\w+)')
+_VALUE_RE         = re.compile(r'\$responses\.(\d+)\.value\.(\w+)')
+_VALUES_NESTED_RE = re.compile(r'\$responses\.(\d+)\.values\.(\d+)\.(\w+)\.(\w+)')
+_VALUES_RE        = re.compile(r'\$responses\.(\d+)\.values\.(\d+)\.(\w+)')
 
 
 def resolve(text: str, responses: list) -> str:
@@ -114,6 +116,17 @@ def resolve(text: str, responses: list) -> str:
                 return str(v[field])
         return m.group(0)
 
+    def _values_nested_sub(m):
+        # Resolves $responses.N.values.INDEX.FIELD.SUBFIELD — e.g. values.0.account.name
+        idx, li, field, subfield = int(m.group(1)), int(m.group(2)), m.group(3), m.group(4)
+        if idx < len(responses):
+            vs = responses[idx].get("values", [])
+            if li < len(vs) and isinstance(vs[li], dict):
+                nested = vs[li].get(field)
+                if isinstance(nested, dict) and nested.get(subfield) is not None:
+                    return str(nested[subfield])
+        return m.group(0)
+
     def _values_sub(m):
         idx, li, field = int(m.group(1)), int(m.group(2)), m.group(3)
         if idx < len(responses):
@@ -122,9 +135,10 @@ def resolve(text: str, responses: list) -> str:
                 return str(vs[li][field])
         return m.group(0)
 
-    # Apply nested first (more specific) before the single-field pattern
+    # Apply most specific patterns first to avoid partial matches
     text = _VALUE_NESTED_RE.sub(_value_nested_sub, text)
     text = _VALUE_RE.sub(_value_sub, text)
+    text = _VALUES_NESTED_RE.sub(_values_nested_sub, text)  # must run before _VALUES_RE
     text = _VALUES_RE.sub(_values_sub, text)
     return text
 
@@ -194,6 +208,11 @@ def execute_calls(calls: list, responses: list, base_url: str, session_token: st
         if len(responses) >= MAX_CALLS:
             logger.warning("MAX_CALLS (%d) reached, stopping", MAX_CALLS)
             break
+
+        # Normalize httpMethod → method (repair LLM sometimes uses httpMethod)
+        if "httpMethod" in call and "method" not in call:
+            call = dict(call)
+            call["method"] = call.pop("httpMethod")
 
         if not isinstance(call.get("method"), str) or not isinstance(call.get("endpoint"), str):
             logger.warning("CALL %d: skipping malformed call object: %s", i, call)
@@ -364,6 +383,8 @@ POST /department:
 
 POST /project:
   REQUIRED: name, startDate ("YYYY-MM-DD"), projectManager ({{"id": EMPLOYEE_ID}})
+  If no project manager is named in the task: do GET /employee?fields=id,firstName,lastName&count=1 first,
+  then use "$responses.N.values.0.id" as projectManager.id. Do NOT hardcode id=1 — that is "Historisk ansatt" and causes 422.
 
 POST /order:
   REQUIRED: customer ({{"id": ID}}), orderDate ("{today}"), deliveryDate ("{today}")
@@ -594,6 +615,7 @@ CRITICAL: The "fields" query param value NEVER uses dot notation. Dot notation (
 "$responses.N.values.0.id"           -> id of first item from GET list at step N
 "$responses.N.values.0.version"      -> version of first item from GET list at step N
 "$responses.N.values.1.id"           -> id of second item from GET list at step N
+"$responses.N.values.0.account.name" -> nested sub-field within list item (e.g. account name from ledger posting)
 CRITICAL: Only simple dot-path and numeric index placeholders are supported.
   DO NOT use JSONPath filter expressions like $responses.N.values[?(@.field==value)].id — NOT supported, will fail.
   DO NOT use ternary expressions like ($responses.0.count > 0 ? $responses.0.values.0.id : 123) — NOT supported, will fail.
