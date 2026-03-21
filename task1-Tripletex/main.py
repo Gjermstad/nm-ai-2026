@@ -563,11 +563,19 @@ Reverse a bank return (bankretur — undo a registered payment so the invoice is
   NOTE: The placeholder for the voucher id from a single GET /invoice/{id} response is:
         $responses.1.value.voucher.id  (where 1 = the step index of the GET /invoice/{id} call)
 
-Supplier invoice (leverandørfaktura / fatura do fornecedor):
-  NOTE: The Tripletex API does NOT have a POST endpoint for creating supplier invoices.
-  If a task asks to register a supplier invoice, record it as a ledger voucher instead (POST /ledger/voucher).
-  Do NOT call POST /supplier/invoice (405) or POST /supplierInvoice (does not exist).
-  Use GET /supplier to look up the supplier, GET /ledger/account for the account, then POST /ledger/voucher.
+Supplier invoice (leverandørfaktura / fatura do fornecedor / Lieferantenrechnung):
+  Use POST /supplierInvoice (camelCase, no slash — NOT /supplier/invoice which gives 405).
+  REQUIRED body fields: invoiceDate ("YYYY-MM-DD"), invoiceDueDate ("YYYY-MM-DD")
+  Optional but important: supplier ({{"id": SUPPLIER_ID}}), invoiceNumber ("string"),
+    amountExcludingVatCurrency (number — amount excl. VAT in the invoice currency)
+  Flow:
+    1. GET /supplier?organizationNumber=X or GET /supplier?name=X to look up supplier (SEARCH FIRST)
+    2. POST /supplierInvoice: {{"invoiceDate": "YYYY-MM-DD", "invoiceDueDate": "YYYY-MM-DD",
+         "supplier": {{"id": "$responses.0.values.0.id"}},
+         "invoiceNumber": "INV-2026-XXXX",
+         "amountExcludingVatCurrency": AMOUNT}}
+  The system automatically generates ledger postings (accounts 2400, 2710 etc).
+  Do NOT also post a /ledger/voucher for the same supplier invoice — it causes duplicate bookings.
 
 Ledger voucher (bilag):
   POST /ledger/voucher
@@ -611,7 +619,7 @@ The following endpoints return 404 or 405 and must never be called:
     - Skip the dimension creation entirely
     - Post the voucher on the correct account without any dimension reference
   GET /vat/type                          → 404. Use hardcoded vatType IDs instead.
-  POST /supplier/invoice                 → 405. Use POST /ledger/voucher instead.
+  POST /supplier/invoice                 → 405. Use POST /supplierInvoice (camelCase) instead.
   POST /invoice/fromTimesheet            → 405.
   POST /timesheet (without /entry)       → 404. Use POST /timesheet/entry.
   PUT /invoice/{{id}}/:reversePayment    → 404. Does NOT exist.
