@@ -86,12 +86,26 @@ def call_llm(prompt: str, deadline: float) -> str:
 
 
 # --- Placeholder resolution ---
-# Supports: $responses.N.value.FIELD  and  $responses.N.values.INDEX.FIELD
-_VALUE_RE  = re.compile(r'\$responses\.(\d+)\.value\.(\w+)')
-_VALUES_RE = re.compile(r'\$responses\.(\d+)\.values\.(\d+)\.(\w+)')
+# Supports:
+#   $responses.N.value.FIELD           — single-item response (POST/PUT/GET single)
+#   $responses.N.value.FIELD.SUBFIELD  — nested object, e.g. value.voucher.id
+#   $responses.N.values.INDEX.FIELD    — list response (GET list)
+_VALUE_NESTED_RE = re.compile(r'\$responses\.(\d+)\.value\.(\w+)\.(\w+)')
+_VALUE_RE        = re.compile(r'\$responses\.(\d+)\.value\.(\w+)')
+_VALUES_RE       = re.compile(r'\$responses\.(\d+)\.values\.(\d+)\.(\w+)')
 
 
 def resolve(text: str, responses: list) -> str:
+    def _value_nested_sub(m):
+        idx, field, subfield = int(m.group(1)), m.group(2), m.group(3)
+        if idx < len(responses):
+            v = responses[idx].get("value")
+            if isinstance(v, dict):
+                nested = v.get(field)
+                if isinstance(nested, dict) and nested.get(subfield) is not None:
+                    return str(nested[subfield])
+        return m.group(0)
+
     def _value_sub(m):
         idx, field = int(m.group(1)), m.group(2)
         if idx < len(responses):
@@ -108,6 +122,8 @@ def resolve(text: str, responses: list) -> str:
                 return str(vs[li][field])
         return m.group(0)
 
+    # Apply nested first (more specific) before the single-field pattern
+    text = _VALUE_NESTED_RE.sub(_value_nested_sub, text)
     text = _VALUE_RE.sub(_value_sub, text)
     text = _VALUES_RE.sub(_values_sub, text)
     return text
@@ -438,6 +454,24 @@ Issue credit note (kreditnota / kreditfaktura):
   Example call: {{"method": "PUT", "endpoint": "/invoice/$responses.0.values.0.id/:createCreditNote",
     "params": {{"date": "{today}", "sendToCustomer": "false"}}}}
 
+Reverse a bank return (bankretur — undo a registered payment so the invoice is outstanding again):
+  This is NOT the same as a credit note. A credit note cancels the invoice. A bank return reversal
+  undoes the payment registration and restores the invoice to outstanding/unpaid status.
+  Flow:
+    Step 1: GET /invoice — params: invoiceDateFrom="2000-01-01", invoiceDateTo="{today}",
+            fields="id,invoiceNumber,amountCurrency,amountExcludingVatCurrency,voucher(id)"
+            Match the invoice by amount from the task.
+    Step 2: GET /invoice/$responses.0.values.0.id — params: fields="id,voucher(id)"
+            This gets the invoice with its payment voucher.
+    Step 3: PUT /ledger/voucher/$responses.1.value.voucher.id/:reverse
+            REQUIRED query param: date=YYYY-MM-DD (use today or the bank return date)
+            No request body. This creates a counter-entry that reverses the payment voucher.
+            After this, the invoice shows as outstanding again.
+  IMPORTANT: Do NOT use PUT /invoice/:createCreditNote for bank return tasks — that cancels the invoice,
+             it does not restore the outstanding balance. Only use :reverse on the payment voucher.
+  NOTE: The placeholder for the voucher id from a single GET /invoice/{id} response is:
+        $responses.1.value.voucher.id  (where 1 = the step index of the GET /invoice/{id} call)
+
 Supplier invoice (leverandørfaktura / fatura do fornecedor):
   NOTE: The Tripletex API does NOT have a POST endpoint for creating supplier invoices.
   If a task asks to register a supplier invoice, record it as a ledger voucher instead (POST /ledger/voucher).
@@ -461,6 +495,9 @@ Ledger voucher (bilag):
   GET /ledger/account to find account IDs by number (e.g. params: {{"number": "1500", "fields": "id,number,name"}})
   If GET /ledger/account returns count: 0 for an account, skip the voucher that depends on it.
   DELETE /ledger/voucher/{{id}}: GET /ledger/voucher first → DELETE /ledger/voucher/$responses.N.values.0.id
+  PUT /ledger/voucher/{{id}}/:reverse  — reverses a voucher by creating a counter-entry (used for bank return):
+    REQUIRED query param: date=YYYY-MM-DD. No request body.
+    Returns 200 with the new reversed voucher. The original invoice will show as outstanding again.
 
 Ledger postings (posteringer):
   GET /ledger/posting with params: {{"dateFrom": "YYYY-MM-DD", "dateTo": "YYYY-MM-DD", "fields": "id,date,description,amount,account(id,number,name)"}}
@@ -504,11 +541,12 @@ CRITICAL: The "fields" query param value NEVER uses dot notation. Dot notation (
   - Note: "customer.id" as a QUERY FILTER PARAM KEY (not in the fields= value) is fine for filtering.
 
 === PLACEHOLDER SYNTAX ===
-"$responses.N.value.id"         -> id from POST/PUT response at step N
-"$responses.N.value.version"    -> version from single-item response at step N
-"$responses.N.values.0.id"      -> id of first item from GET list at step N
-"$responses.N.values.0.version" -> version of first item from GET list at step N
-"$responses.N.values.1.id"      -> id of second item from GET list at step N
+"$responses.N.value.id"              -> id from POST/PUT/single-GET response at step N
+"$responses.N.value.version"         -> version from single-item response at step N
+"$responses.N.value.voucher.id"      -> nested field — e.g. voucher id from GET /invoice/{id}?fields=id,voucher(id)
+"$responses.N.values.0.id"           -> id of first item from GET list at step N
+"$responses.N.values.0.version"      -> version of first item from GET list at step N
+"$responses.N.values.1.id"           -> id of second item from GET list at step N
 CRITICAL: Only simple dot-path and numeric index placeholders are supported.
   DO NOT use JSONPath filter expressions like $responses.N.values[?(@.field==value)].id — NOT supported, will fail.
 
