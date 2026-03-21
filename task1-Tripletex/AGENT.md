@@ -117,7 +117,7 @@ https://tripletex-agent-997219197351.europe-north1.run.app
 - `POST /travelExpense`, `PUT /travelExpense/{id}`, `DELETE /travelExpense/{id}`
 - `PUT /order/{id}/:invoice`, `PUT /invoice/{id}/:payment`, `PUT /invoice/{id}/:createCreditNote`
 - `GET /invoice` (requires `invoiceDateFrom`/`invoiceDateTo`)
-- `GET /ledger/account`, `POST /ledger/voucher`
+- `GET /ledger/account`, `POST /ledger/voucher` (body uses `"postings"` array, NOT `"vouchers"`)
 - `GET /supplier`
 
 **Verified NOT working:**
@@ -269,14 +269,19 @@ cd ~/nm-ai-2026-1/task1-Tripletex && gcloud run deploy tripletex-agent --source 
 
 ---
 
-## 11. WHAT TO DO NEXT (as of March 21 ~17:00 CET)
+## 11. WHAT TO DO NEXT (as of March 21 ~18:00 CET)
 
-### Immediate (first action in new session)
-1. **Redeploy from `~/nm-ai-2026-1`** — PR #18 merged but deployment is stale
-2. **Submit to validator** — gather logs to find what new Tier 3 tasks look like
+### Immediate
+1. **Commit and push PR #19** — fixes critical `"vouchers"` → `"postings"` bug in `POST /ledger/voucher`; increases MAX_CALLS 12→16
+2. **Redeploy** from `~/nm-ai-2026-1` after push
+3. **Submit repeatedly** — confirm year-end depreciation task now works
 
-### Known upcoming fixes needed (once logs confirm)
-3. **Ledger/voucher improvements** — Tier 3 tasks may require complex ledger work
+### Confirmed new task types (Tier 3, seen today)
+- #23: Year-end closing / depreciation booking (årsoppgjør) — multiple vouchers per asset
+- #24: Ledger error correction (find + fix 4 errors) — always 403 on first call (env issue?)
+- #25: Travel expense with per diems + flight + taxi — same as #15, BETA cost lines
+
+### Known fixes pending
 4. **Employee + employment sub-resource** — if "set start date" tasks come back
 5. **GET /project with customer filter** — for project lookup in timesheet flows
-6. **POST /timesheet/entry** — confirmed in API spec but not yet confirmed in validator logs
+6. **POST /timesheet/entry** — not yet confirmed in validator logs

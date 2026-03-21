@@ -19,7 +19,7 @@ PROJECT_ID = "ai-nm26osl-1730"
 VERTEX_URL = f"https://aiplatform.googleapis.com/v1/projects/{PROJECT_ID}/locations/global/publishers/google/models/gemini-2.5-flash:generateContent"
 
 MAX_DURATION = 255  # seconds before hard stop (300s limit - 45s buffer)
-MAX_CALLS    = 12   # cap total Tripletex API calls for efficiency
+MAX_CALLS    = 16   # cap total Tripletex API calls (Tier 3 tasks need up to 14+)
 
 # Optional inbound API key auth (set SOLVE_API_KEY env var to enable)
 _API_KEY = os.getenv("SOLVE_API_KEY")
@@ -400,8 +400,14 @@ Supplier invoice (leverandørfaktura / fatura do fornecedor):
 
 Ledger voucher (bilag):
   POST /ledger/voucher
-  body: {{"date": "YYYY-MM-DD", "description": "...", "vouchers": [{{"account": {{"id": ACCT_ID}}, "amount": 0}}]}}
-  GET /ledger/account to find account IDs by number (e.g. params: {{"number": "1500"}})
+  body: {{"date": "YYYY-MM-DD", "description": "...", "postings": [{{"account": {{"id": ACCT_ID}}, "amount": NUMBER}}]}}
+  CRITICAL: The line-items array field is "postings" — NOT "vouchers". Using "vouchers" causes 422.
+  Each posting: {{"account": {{"id": INT}}, "amount": NUMBER}} where positive = debit, negative = credit.
+  Every voucher must balance (sum of all amounts = 0). Example depreciation entry:
+    {{"account": {{"id": EXPENSE_ACCOUNT_ID}}, "amount": 91175}},   <- debit expense account
+    {{"account": {{"id": ASSET_ACCOUNT_ID}},   "amount": -91175}}   <- credit asset/accumulated depreciation account
+  GET /ledger/account to find account IDs by number (e.g. params: {{"number": "1500", "fields": "id,number,name"}})
+  If GET /ledger/account returns count: 0 for an account, skip the voucher that depends on it.
   DELETE /ledger/voucher/{{id}}: GET /ledger/voucher first → DELETE /ledger/voucher/$responses.N.values.0.id
 
 Ledger postings (posteringer):

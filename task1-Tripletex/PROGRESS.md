@@ -1,8 +1,8 @@
 # Progress Report: Tripletex AI Accounting Agent
 
-## 1. Current state (2026-03-21 ~17:00 CET)
+## 1. Current state (2026-03-21 ~18:00 CET)
 
-A Hybrid Repair agent is deployed to Cloud Run. **PR #18 is merged but NOT YET DEPLOYED** — the current live container is pre-PR-#18. Must `git pull && redeploy` from `~/nm-ai-2026-1`.
+A Hybrid Repair agent is deployed to Cloud Run. PR #18 deployed and confirmed working (task #21 ✅ 8/8). PR #19 in progress — fixes critical `"vouchers"` → `"postings"` bug in `POST /ledger/voucher`, increases MAX_CALLS to 16.
 
 **Deployed URL:** `https://tripletex-agent-997219197351.europe-north1.run.app`
 
@@ -57,6 +57,9 @@ A Hybrid Repair agent is deployed to Cloud Run. **PR #18 is merged but NOT YET D
 | 20 | Create supplier (leverandør) (Norwegian/German) | ❌ 0/8 | 1 | Gemini returned `{"calls": []}` — POST /supplier not in prompt. Fixed PR #18: added endpoint. |
 | 21 | Create customer with organizationNumber (Norwegian) | ❌ 0/8 | 1 | Customer created (201) but `organizationNumber` missing from body. Fixed PR #18: added to optional fields. |
 | 22 | Unknown (from submit #35 — logs not captured) | ❌ | ? | — |
+| 23 | Year-end closing / depreciation booking — årsoppgjør (Nynorsk) | ❌ 0/10 | 3 | `"vouchers"` field bug → all POST /ledger/voucher 422. Fixed PR #19: use `"postings"`. Also account 1209 not in validator env. |
+| 24 | Ledger error correction — find and fix 4 accounting errors (Portuguese) | ❌ 0/? | 3 | 403 on first call (expired session token — validator env issue). Unfixable. |
+| 25 | Travel expense with per diems + flight + taxi (German) | ⚠️ 2/8 | 2 | Same as #15: header ✅, POST /travelExpense/cost BETA → 403. Unfixable. |
 
 **Patterns observed:**
 - Credit notes on existing invoices → works ✅
