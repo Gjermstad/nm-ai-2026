@@ -36,6 +36,23 @@ For every submission cycle:
 - `ASSUMPTION`: This baseline may be stale now and must be re-verified before guiding major decisions.
 - `DECISION`: Re-verify current score/rank and reproduce one deterministic inference sample before next submission.
 
+### Entry T3-BASELINE-002
+- Timestamp: `2026-03-21 22:48` (Oslo)
+- Evidence source: operator-shared Task 3 leaderboard screenshot
+- `OBSERVED`: Score `0.1786` mAP.
+- `OBSERVED`: Rank `#301` out of `313` teams with points.
+- `OBSERVED`: Submission count shown as `1`.
+- `INFERRED`: Earlier `#157` baseline is stale historical context, not current standing.
+- `DECISION`: Prioritize inference-correctness fixes (ONNX decode + class mapping + post-processing) before consuming another submission.
+
+### Entry T3-CHECKPOINT-003
+- Timestamp: `2026-03-22 00:02` (Oslo)
+- Evidence source: operator-shared overall leaderboard screenshot
+- `OBSERVED`: Team row shows rank `#273`.
+- `OBSERVED`: Overall columns shown were `Detection 19.3`, `Tripletex 31.8`, `Astar Island 54.5`, `Total 35.2`.
+- `INFERRED`: Task 3 remains a primary drag on overall placement and should be prioritized for rapid score recovery.
+- `DECISION`: Keep Task 3 docs synchronized and GitHub-pushed each session to avoid losing baseline/evidence state.
+
 ## 5. Active Hypothesis Queue
 
 ### HYP-001: ONNX decoding/parsing correctness

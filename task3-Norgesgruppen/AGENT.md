@@ -1,8 +1,8 @@
 # AGENT.md — Task 3: NorgesGruppen Object Detection
 
 > NM i AI 2026 — Task 3 handoff/control file
-> Last updated: 2026-03-21 (Saturday, Oslo)
-> Status: Task 3 context was not actively maintained after Friday morning; baseline must be re-verified before new submissions.
+> Last updated: 2026-03-22 (Sunday, Oslo)
+> Status: Baseline checkpoints now recorded with exact timestamps; documentation sync contract enforced to prevent local-only memory drift.
 
 ---
 
@@ -13,7 +13,9 @@
 2. Do not push code directly to `main`; use branch + PR.
 3. Assume parallel sessions can merge at any time; always verify branch freshness before editing.
 4. Update `task3-Norgesgruppen/AGENT.md` and `task3-Norgesgruppen/PROGRESS.md` after meaningful changes.
-5. Preserve a durable memory trail in `task3-Norgesgruppen/PastSubmissions.md`.
+5. If either `AGENT.md` or `PROGRESS.md` changes, the other must be reviewed and updated in the same commit.
+6. Before ending a Task 3 session, push docs updates to GitHub to avoid local-only memory loss.
+7. Preserve a durable memory trail in `task3-Norgesgruppen/PastSubmissions.md`.
 
 ### Session behavior
 1. Do not block the session with long hold loops.
@@ -82,16 +84,17 @@ Run this exact sequence before making changes:
 
 ---
 
-## 4. Current Baseline Snapshot (Needs Re-Verification)
+## 4. Current Baseline Snapshot (Last Verified: 2026-03-21 22:48 Oslo)
 
-Last known (historical baseline from older Task 3 context):
+Latest verified Task 3 checkpoint (from leaderboard screenshot):
 - Score: `0.1786` mAP
-- Rank: `#157`
-- Submission artifact: ONNX-based `run.py` + `best.onnx`
-- Hypothesis then: ONNX output parsing/classification likely incorrect
+- Rank: `#301` out of `313` teams with points
+- Submission count shown: `1`
+- Historical artifact context: ONNX-based `run.py` + `best.onnx` (from prior notes)
+- Working hypothesis: ONNX output parsing/classification likely incorrect
 
 Important:
-- Treat these numbers as stale until re-checked in the current competition UI.
+- The older `#157` note is stale historical context, not current standing.
 - Always include exact "last verified" timestamp when updating these fields.
 
 ---
