@@ -214,6 +214,14 @@ def execute_calls(calls: list, responses: list, base_url: str, session_token: st
             call = dict(call)
             call["method"] = call.pop("httpMethod")
 
+        # Extract method from endpoint if repair LLM embeds it there (e.g. "POST /endpoint" → method="POST", endpoint="/endpoint")
+        if isinstance(call.get("endpoint"), str) and " " in call["endpoint"] and not isinstance(call.get("method"), str):
+            first_token, rest = call["endpoint"].split(" ", 1)
+            if first_token.upper() in ("GET", "POST", "PUT", "DELETE", "PATCH"):
+                call = dict(call)
+                call["method"] = first_token.upper()
+                call["endpoint"] = rest
+
         if not isinstance(call.get("method"), str) or not isinstance(call.get("endpoint"), str):
             logger.warning("CALL %d: skipping malformed call object: %s", i, call)
             responses.append({"error": "malformed call"})
@@ -379,7 +387,9 @@ POST /supplier  (create a new supplier / leverandør):
 POST /department:
   REQUIRED: name
   SEARCH FIRST — CRITICAL: If the task references an existing department (by name), do GET /department?name=X&fields=id,name first.
-    If found (count > 0): use "$responses.N.values.0.id" for all downstream references — do NOT also POST /department for the same name.
+    If found (count > 0): use "$responses.N.values.0.id" for all downstream references to this department's ID.
+    Do NOT include a POST /department call for the same department anywhere in your plan — omit it entirely.
+    The GET call IS the only call. All downstream voucher/project/order calls must reference "$responses.N.values.0.id" from the GET, not a POST result.
 
 POST /project:
   REQUIRED: name, startDate ("YYYY-MM-DD"), projectManager ({{"id": EMPLOYEE_ID}})
@@ -500,7 +510,9 @@ Register invoice payment (betaling på faktura):
     Optional filter params: fields="id,invoiceNumber,amountCurrency,amountExcludingVatCurrency"
     CRITICAL: invoiceDateFrom and invoiceDateTo are ALWAYS required — omitting them causes 422.
     CRITICAL: Do NOT use dot notation in the fields param (e.g. "customer.id" will cause 400 "Illegal fields filter: Fields filter contains '.'").
-      Use only simple field names: "id,invoiceNumber,amountCurrency,amountExcludingVatCurrency"
+      Use only simple field names: "id,invoiceNumber,amountCurrency,amountExcludingVatCurrency,dueDate"
+    INVALID FIELDS: Do NOT use "paidAmountCurrency" — it does NOT exist on InvoiceDTO and causes 400.
+      Valid fields: id, invoiceNumber, amountCurrency, amountExcludingVatCurrency, dueDate, invoiceDate, customer(id,name), voucher(id)
     NOTE: The server does NOT filter by amountCurrency or amountExcludingVatCurrency — it may return ALL invoices.
     If multiple invoices are returned, select the correct index by matching the amount in the task:
       values.0 = lowest invoiceNumber (oldest), values.1 = second oldest, etc.
