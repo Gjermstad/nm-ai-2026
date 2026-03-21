@@ -385,6 +385,8 @@ POST /project:
   REQUIRED: name, startDate ("YYYY-MM-DD"), projectManager ({{"id": EMPLOYEE_ID}})
   If no project manager is named in the task: do GET /employee?fields=id,firstName,lastName&count=1 first,
   then use "$responses.N.values.0.id" as projectManager.id. Do NOT hardcode id=1 — that is "Historisk ansatt" and causes 422.
+  NOTE: Do NOT include fixedPrice, contractSum, billingPlan, price, or any billing/pricing fields in POST /project — they do NOT exist on the project creation endpoint and cause 422.
+    A fixed price cannot be set via the API (the endpoint to do so is BETA/403). Create the project normally, then proceed with order/invoice for partial credit.
 
 POST /order:
   REQUIRED: customer ({{"id": ID}}), orderDate ("{today}"), deliveryDate ("{today}")
@@ -554,9 +556,13 @@ Ledger voucher (bilag):
   Example depreciation entry:
     {{"row": 1, "account": {{"id": EXPENSE_ACCOUNT_ID}}, "amount": 91175}},   <- debit expense account
     {{"row": 2, "account": {{"id": ASSET_ACCOUNT_ID}},   "amount": -91175}}   <- credit asset
-  DO NOT add "supplier", "department", "customDimensions", "dimension", "vouchers", "voucherRows", "voucherType" fields to the voucher body or to individual posting objects — none of these exist and all cause 422.
+  DO NOT add "department", "customDimensions", "dimension", "vouchers", "voucherRows", "voucherType" fields to the voucher body — these cause 422.
+  Do NOT add "supplier" at the VOUCHER level — invalid there.
   The only valid top-level fields on POST /ledger/voucher are: date, description, postings.
-  The only valid fields per posting are: row (required, starts at 1), account (with id), amount, and optionally vatType or description.
+  The only valid fields per posting are: row (required, starts at 1), account (with id), amount, and optionally vatType, description, or supplier.
+  SUPPLIER INVOICE VOUCHER: When posting to account 2400 (Leverandørgjeld), Tripletex REQUIRES supplier on that posting:
+    {{"row": N, "account": {{"id": ACCOUNT_2400_ID}}, "amount": -TOTAL, "supplier": {{"id": SUPPLIER_ID}}}}
+    Include supplier ONLY on the 2400 posting — not on expense or VAT postings.
   SYSTEM-GENERATED POSTINGS ERROR: If you get 422 "Posteringene er systemgenererte og kan ikke opprettes eller endres på utsiden av Tripletex",
     it means Tripletex automatically generates those postings (e.g. accounts 1500 Kundefordringer, 2740, 3400 in invoice/reminder contexts).
     In that case: skip the voucher entirely — do NOT attempt to post to those accounts manually.
