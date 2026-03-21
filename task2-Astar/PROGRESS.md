@@ -1,5 +1,19 @@
 # Progress Report: Astar Island Operator (Task 2)
 
+## 0. Latest Session Update (2026-03-21, Saturday ~17:19 Oslo)
+
+- PR #19 is merged to `main`, and the feature branch was deleted after merge.
+- The implemented Task 2 stack is now the baseline in repository `main`.
+- Current local workspace is clean for tracked files; only unrelated untracked `.claude/` exists.
+- New `task2-Astar/AGENT.md` has been added to support fresh-session handoff for this task.
+- Immediate focus remains live validation during active round windows (query progression, draft readiness, submit flow, and deadline guard behavior).
+
+### New Session Prompt (copy/paste)
+
+`Continue Task 2 Astar from task2-Astar. Read AGENT.md, PROGRESS.md, and SPEC.md first, then run a live smoke workflow: start local app, verify active round + query progression, rebuild drafts, validate per-seed readiness, submit one seed then submit all, and report blockers with fixes. Keep the existing architecture; optimize for fast reliable competition execution.`
+
+---
+
 ## 1. Current State (as of 2026-03-21)
 
 A complete v1 implementation exists in `task2-Astar/` for a direct API-driven operator service and web dashboard.
