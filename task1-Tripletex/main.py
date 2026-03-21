@@ -382,22 +382,10 @@ Issue credit note (kreditnota / kreditfaktura):
     "params": {{"date": "{today}", "sendToCustomer": "false"}}}}
 
 Supplier invoice (leverandørfaktura / fatura do fornecedor):
-  Endpoint: POST /supplierInvoice (NOT /supplier/invoice — that returns 405)
-  REQUIRED: supplier ({{"id": ID}}), invoiceDate ("YYYY-MM-DD"), invoiceDueDate ("YYYY-MM-DD"), invoiceNumber ("...")
-  Optional: comment, invoiceLines: [{{"account": {{"id": ACCT_ID}}, "amount": <number>, "description": "..."}}]
-  Flow: GET /supplier?organizationNumber=X → POST /supplierInvoice
-  Use GET /ledger/account to look up account IDs if the task specifies an account number.
-
-Travel expense costs (reiseutgifter / gastos de viaje):
-  Step 1: POST /travelExpense — creates the header (employee, title, dates).
-  Step 2 (if individual expenses mentioned — flights, taxi, hotel, etc.):
-    POST /travelExpense/cost — add each receipt/cost line
-    body: {{"travelExpense": {{"id": "$responses.0.value.id"}}, "category": {{"id": 1}}, "amount": <number>}}
-    NOTE: "category" refers to cost category ID (1=flight, 2=taxi/ground, etc.) — use best guess if unknown.
-  Step 3 (if per diems / daily allowances mentioned):
-    POST /travelExpense/perDiem is not directly available — per diems are typically configured automatically.
-    Instead, note the per diem amount in the travelExpense title or comment field.
-  DO NOT try to add per diems as separate API calls — create the travelExpense header and individual cost lines only.
+  NOTE: The Tripletex API does NOT have a POST endpoint for creating supplier invoices.
+  If a task asks to register a supplier invoice, record it as a ledger voucher instead (POST /ledger/voucher).
+  Do NOT call POST /supplier/invoice (405) or POST /supplierInvoice (does not exist).
+  Use GET /supplier to look up the supplier, GET /ledger/account for the account, then POST /ledger/voucher.
 
 Ledger voucher (bilag):
   POST /ledger/voucher
@@ -416,6 +404,7 @@ Do NOT generate calls to any of these — they will always fail:
   DELETE /project/{{id}}           → BETA, always 403. Cannot delete projects via API.
   PUT /order/orderline/{{id}}      → BETA, always 403. Cannot update order lines via API.
   DELETE /order/orderline/{{id}}   → BETA, always 403. Cannot delete order lines via API.
+  POST /travelExpense/cost         → BETA, always 403. Cannot add individual expense cost lines via API.
 If the task asks you to do something only possible via a BETA endpoint, skip that action entirely.
 
 === PLACEHOLDER SYNTAX ===
