@@ -294,6 +294,8 @@ POST /employee:
     If you are unsure whether the department exists, always plan: GET /department → POST /department → use $responses.1.value.id
   NOTE: Do NOT include startDate or employmentDate in the employee body — they don't exist on Employee and cause 422.
         Use POST /employee/employment AFTER creating the employee to set employment dates.
+  SEARCH FIRST: If the task references an existing employee (e.g. by email), do GET /employee?email=X&fields=id,firstName,lastName,email first.
+    If found (count > 0), use that ID — do NOT also generate a POST /employee for the same person in the same plan.
 
 POST /employee/employment  (set start date and employment type after creating employee):
   REQUIRED: employee ({{"id": EMPLOYEE_ID}}), startDate ("YYYY-MM-DD")
@@ -417,6 +419,8 @@ GET /activity:
   Lists available work activities (e.g. "Analyse", "Consulting", "Support"). Use to find activity ID for timesheet entries.
   Params: name="Analyse" (search by name), fields="id,name"
   Returns values[]: [{{"id": INT, "name": "..."}}]
+  FALLBACK: If count: 0 (activity not found by name), do GET /activity?fields=id,name (no name filter) to list ALL
+  available activities, then pick the most relevant one. Do NOT skip the timesheet step.
 
 POST /activity  (create a new work activity — use when task asks to create an activity):
   REQUIRED: name
@@ -513,14 +517,17 @@ Ledger voucher (bilag):
   POST /ledger/voucher
   body: {{"date": "YYYY-MM-DD", "description": "...", "postings": [{{"account": {{"id": ACCT_ID}}, "amount": NUMBER}}]}}
   CRITICAL: The line-items array field is "postings" — NOT "vouchers". Using "vouchers" causes 422.
-  Each posting: {{"account": {{"id": INT}}, "amount": NUMBER}} where positive = debit, negative = credit.
-  Every voucher must balance (sum of all amounts = 0). Example depreciation entry:
-    {{"account": {{"id": EXPENSE_ACCOUNT_ID}}, "amount": 91175}},   <- debit expense account
-    {{"account": {{"id": ASSET_ACCOUNT_ID}},   "amount": -91175}}   <- credit asset/accumulated depreciation account
+  CRITICAL: Each posting MUST include "row" starting from 1 — row 0 is system-reserved and causes 422:
+    {{"row": 1, "account": {{"id": INT}}, "amount": NUMBER}}
+    {{"row": 2, "account": {{"id": INT}}, "amount": NUMBER}}
+  Positive = debit, negative = credit. Every voucher must balance (sum of all amounts = 0).
+  Example depreciation entry:
+    {{"row": 1, "account": {{"id": EXPENSE_ACCOUNT_ID}}, "amount": 91175}},   <- debit expense account
+    {{"row": 2, "account": {{"id": ASSET_ACCOUNT_ID}},   "amount": -91175}}   <- credit asset
   DO NOT add "supplier", "department", "customDimensions", "dimension", "vouchers", "voucherRows", "voucherType" fields to the voucher body or to individual posting objects — none of these exist and all cause 422.
   The only valid top-level fields on POST /ledger/voucher are: date, description, postings.
-  The only valid fields per posting are: account (with id), amount, and optionally description.
-  SYSTEM-GENERATED POSTINGS ERROR: If you get 422 "Posteringene på rad 0 er systemgenererte og kan ikke opprettes eller endres på utsiden av Tripletex",
+  The only valid fields per posting are: row (required, starts at 1), account (with id), amount, and optionally vatType or description.
+  SYSTEM-GENERATED POSTINGS ERROR: If you get 422 "Posteringene er systemgenererte og kan ikke opprettes eller endres på utsiden av Tripletex",
     it means Tripletex automatically generates those postings (e.g. accounts 1500 Kundefordringer, 2740, 3400 in invoice/reminder contexts).
     In that case: skip the voucher entirely — do NOT attempt to post to those accounts manually.
   GET /ledger/account to find account IDs by number (e.g. params: {{"number": "1500", "fields": "id,number,name"}})
