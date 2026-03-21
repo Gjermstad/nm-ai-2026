@@ -371,7 +371,8 @@ POST /order:
   Do NOT use GET /vat/type — that endpoint does not exist and returns 404.
   Do NOT use JSONPath filter expressions like $responses.N.values[?(@.x==y)].id — they are NOT supported.
   Optional: project ({{"id": ID}}) — link order to a project.
-  Optional order line fields: employee ({{"id": ID}}), project ({{"id": ID}})
+  Optional order line fields: project ({{"id": ID}})
+  NOTE: Do NOT include employee in orderLines — that field does not exist on orderLine and causes 422 "Feltet eksisterer ikke i objektet".
 
 ⚠️ BANK ACCOUNT SETUP — required before any invoice creation:
   A fresh Tripletex account has no bank account number registered, which causes 422
@@ -431,6 +432,7 @@ POST /timesheet/entry  (log worked hours — NOT /timesheet or /timeSheet):
   REQUIRED: employee ({{"id": ID}}), project ({{"id": ID}}), activity ({{"id": ID}}), date ("YYYY-MM-DD"), hours (number)
   Optional: hourlyRate (number), comment ("...")
   NOTE: The endpoint is /timesheet/entry — NOT /timesheet, NOT /timeSheet. Those return 404.
+  NOTE: Do NOT include customer, order, or invoice fields — those fields do not exist on timesheet/entry and cause 422.
   Activity lookup: GET /activity?name=<activityName>&fields=id,name → use $responses.N.values.0.id
   DO NOT use GET /product to look up an activity — they are different things.
   DO NOT use POST /invoice/fromTimesheet — that endpoint returns 405.
