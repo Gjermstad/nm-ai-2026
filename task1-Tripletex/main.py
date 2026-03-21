@@ -284,19 +284,18 @@ POST /department:
 POST /project:
   REQUIRED: name, startDate ("YYYY-MM-DD"), projectManager ({{"id": EMPLOYEE_ID}})
 
-GET /vat/type:
-  Lists all VAT types available for this company. Use when the task specifies non-standard VAT rates (15%, 0%, mixed).
-  Returns values[]: [{{"id": INT, "name": "...", "percentage": 25.0, ...}}]
-  Match the required percentage to pick the correct vatType.id.
-
 POST /order:
   REQUIRED: customer ({{"id": ID}}), orderDate ("{today}"), deliveryDate ("{today}")
   deliveryDate: always include — use the same value as orderDate unless the prompt specifies otherwise.
   orderLines: [{{"description": "...", "count": 1, "unitPriceExcludingVatCurrency": 1000, "vatType": {{"id": 3}}}}]
   VAT note: by default use unitPriceExcludingVatCurrency. If isPrioritizeAmountsIncludingVat is true on the order,
   use unitPriceIncludingVatCurrency instead.
-  vatType id 3 = standard Norwegian 25% VAT in most companies. If the task mentions MULTIPLE VAT rates or
-  non-25% VAT (15% food/beverage, 0% exempt, etc.), do GET /vat/type first and pick IDs by percentage.
+  Standard Norwegian VAT type IDs (hardcode these — do NOT try to look them up via API):
+    25% (standard/high):       vatType {{"id": 3}}
+    15% (food/beverage/middle): vatType {{"id": 5}}
+    0%  (exempt/avgiftsfri):    omit vatType field entirely (no vatType key on the order line)
+  Do NOT use GET /vat/type — that endpoint does not exist and returns 404.
+  Do NOT use JSONPath filter expressions like $responses.N.values[?(@.x==y)].id — they are NOT supported.
   Optional: project ({{"id": ID}}) — link order to a project.
   Optional order line fields: employee ({{"id": ID}}), project ({{"id": ID}})
 
@@ -407,6 +406,8 @@ If the task asks you to do something only possible via a BETA endpoint, skip tha
 "$responses.N.values.0.id"      -> id of first item from GET list at step N
 "$responses.N.values.0.version" -> version of first item from GET list at step N
 "$responses.N.values.1.id"      -> id of second item from GET list at step N
+CRITICAL: Only simple dot-path and numeric index placeholders are supported.
+  DO NOT use JSONPath filter expressions like $responses.N.values[?(@.field==value)].id — NOT supported, will fail.
 
 === OUTPUT FORMAT ===
 Respond with ONLY a raw JSON object - no markdown, no code fences, no explanation.
