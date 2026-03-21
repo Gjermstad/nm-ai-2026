@@ -88,6 +88,8 @@ Note on T1/T2: the leaderboard columns T1/T2/T3 are the three competition tasks 
 | 7 | Create project "Intégration Montagne" for Montagne SARL, PM Nathan Martin (French) | ✅ 7/7 | 8/8 | 1 | — |
 | 8 | Create order + invoice + payment for Río Verde SL, 2 products (Spanish) | ⚠️ 3/4 | 4/8 | 2 | Payment 404 — invoice id 2147557274 > INT32_MAX, may overflow in proxy; paidAmount was hardcoded 63000.0 (correct) |
 | 9 | Create customer Sonnental GmbH with address Solveien 21 Tromsø (German) | ❌ 0/1 | 0/8 | 1 | `POST /customer` address: tried `visitingAddress` (nested) and `visitingAddressLine1` (flat), both 422. Correct field: `postalAddress` (fixed PR #13) |
+| 10 | Create invoice for Havbris AS, 3 lines: 25%/15%/0% VAT (Norwegian) | ❌ 0/8 | 0/8 | 2 | Mixed VAT rates — vatType id=3 invalid for this company; Gemini guessed wrong IDs. Fix: GET /vat/type first (PR #14) |
+| 11 | Log 34 hours for Charlotte Williams on "Analyse" in "Security Audit", invoice Windmill Ltd (English) | ❌ 0/8 | 0/8 | 2 | Used wrong endpoint `/timesheet` (correct: `/timesheet/entry`); used `GET /product` for activity (correct: `GET /activity`); tried `POST /invoice/fromTimesheet` (405). Fixed PR #14 |
 
 **Patterns observed:**
 - Credit notes on existing invoices → works perfectly ✅

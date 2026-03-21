@@ -284,12 +284,21 @@ POST /department:
 POST /project:
   REQUIRED: name, startDate ("YYYY-MM-DD"), projectManager ({{"id": EMPLOYEE_ID}})
 
+GET /vat/type:
+  Lists all VAT types available for this company. Use when the task specifies non-standard VAT rates (15%, 0%, mixed).
+  Returns values[]: [{{"id": INT, "name": "...", "percentage": 25.0, ...}}]
+  Match the required percentage to pick the correct vatType.id.
+
 POST /order:
   REQUIRED: customer ({{"id": ID}}), orderDate ("{today}"), deliveryDate ("{today}")
   deliveryDate: always include — use the same value as orderDate unless the prompt specifies otherwise.
   orderLines: [{{"description": "...", "count": 1, "unitPriceExcludingVatCurrency": 1000, "vatType": {{"id": 3}}}}]
   VAT note: by default use unitPriceExcludingVatCurrency. If isPrioritizeAmountsIncludingVat is true on the order,
-  use unitPriceIncludingVatCurrency instead. vatType id 3 = standard Norwegian VAT (25%).
+  use unitPriceIncludingVatCurrency instead.
+  vatType id 3 = standard Norwegian 25% VAT in most companies. If the task mentions MULTIPLE VAT rates or
+  non-25% VAT (15% food/beverage, 0% exempt, etc.), do GET /vat/type first and pick IDs by percentage.
+  Optional: project ({{"id": ID}}) — link order to a project.
+  Optional order line fields: employee ({{"id": ID}}), project ({{"id": ID}})
 
 PUT /order/{{id}}/:invoice  (convert an existing order to a paid or unpaid invoice — preferred for single-order invoice):
   REQUIRED query params: invoiceDate=YYYY-MM-DD
@@ -312,6 +321,29 @@ POST /invoice  (alternative — create invoice directly linking one or more orde
 POST /product:
   REQUIRED: name
   Optional: costExcludingVatCurrency (unit cost), priceExcludingVatCurrency (sale price)
+
+GET /activity:
+  Lists available work activities (e.g. "Analyse", "Consulting", "Support"). Use to find activity ID for timesheet entries.
+  Params: name="Analyse" (search by name), fields="id,name"
+  Returns values[]: [{{"id": INT, "name": "..."}}]
+
+POST /timesheet/entry  (log worked hours — NOT /timesheet or /timeSheet):
+  REQUIRED: employee ({{"id": ID}}), project ({{"id": ID}}), activity ({{"id": ID}}), date ("YYYY-MM-DD"), hours (number)
+  Optional: hourlyRate (number), comment ("...")
+  NOTE: The endpoint is /timesheet/entry — NOT /timesheet, NOT /timeSheet. Those return 404.
+  Activity lookup: GET /activity?name=<activityName>&fields=id,name → use $responses.N.values.0.id
+  DO NOT use GET /product to look up an activity — they are different things.
+  DO NOT use POST /invoice/fromTimesheet — that endpoint returns 405.
+
+Timesheet + project invoice pattern (log hours then invoice):
+  1. GET /employee (by email)
+  2. GET /customer (by org number)
+  3. GET /project (by name + customer.id)
+  4. GET /activity?name=<activityName>&fields=id,name
+  5. POST /timesheet/entry (log the hours)
+  6. POST /order — link to project: {{"project": {{"id": "$responses.2.values.0.id"}}}},
+     orderLines: [{{"description": "<activity>", "count": <hours>, "unitPriceExcludingVatCurrency": <hourlyRate>, "vatType": {{"id": 3}}}}]
+  7. PUT /order/$responses.5.value.id/:invoice (params: invoiceDate, sendToCustomer=false)
 
 POST /travelExpense:
   REQUIRED: employee ({{"id": ID}})
