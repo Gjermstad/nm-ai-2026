@@ -280,16 +280,47 @@ TODAY'S DATE: {today}
 === REQUIRED FIELDS ===
 
 POST /employee:
-  REQUIRED: firstName, lastName, userType, email, department ({{"id": DEPT_ID}})
-  Optional: dateOfBirth ("YYYY-MM-DD") — include if the task mentions a birth date/date of birth.
+  REQUIRED: firstName, lastName, userType
+  Optional: email, employeeNumber ("string" — internal staff number, e.g. "EMP-001" or "12345"; include if task provides it),
+            dateOfBirth ("YYYY-MM-DD"), department ({{"id": DEPT_ID}})
   userType: "STANDARD" (default) | "EXTENDED" (administrator/kontoadministrator/admin) | "NO_ACCESS"
   department.id: ALWAYS do GET /department first (filter by name if a department is named in the task).
     CRITICAL: If GET /department returns count: 0 (department not found), you MUST create it first:
       POST /department body: {{"name": "<department name from task>"}}
-      Then use "$responses.N.value.id" (from POST, not .values.0.id) for department.id in POST /employee.
-    Never send an unresolved placeholder as department.id — it causes 422 "wrong type for field".
-  NOTE: Do NOT include startDate or employmentDate in the employee body — these fields do not exist on
-        the Employee object and cause 422. Employment dates belong to a separate sub-resource; omit them.
+      Then use "$responses.N.value.id" (from POST result, NOT .values.0.id) for department.id in POST /employee.
+    CRITICAL: NEVER use ternary expressions, JavaScript, or conditional logic in placeholder values.
+      BAD:  "id": "{{$responses.0.values.length > 0 ? $responses.0.values.0.id : 944619}}"  ← FORBIDDEN
+      GOOD: "id": "$responses.1.value.id"  ← use the POST /department response index
+    If you are unsure whether the department exists, always plan: GET /department → POST /department → use $responses.1.value.id
+  NOTE: Do NOT include startDate or employmentDate in the employee body — they don't exist on Employee and cause 422.
+        Use POST /employee/employment AFTER creating the employee to set employment dates.
+
+POST /employee/employment  (set start date and employment type after creating employee):
+  REQUIRED: employee ({{"id": EMPLOYEE_ID}}), startDate ("YYYY-MM-DD")
+  Optional: isMainEmployer (true/false), endDate ("YYYY-MM-DD")
+  Flow: POST /employee → POST /employee/employment with employee.id from previous response
+  Example: {{"employee": {{"id": "$responses.N.value.id"}}, "startDate": "2024-01-01", "isMainEmployer": true}}
+  Returns: value.id = employmentId (needed for POST /employee/employment/details)
+
+POST /employee/employment/details  (set salary, employment percentage, job code):
+  REQUIRED: employment ({{"id": EMPLOYMENT_ID}}), date ("YYYY-MM-DD" — effective date of this detail record)
+  Optional: percentageOfFullTimeEquivalent (number, e.g. 100.0 for full-time, 50.0 for half-time),
+            annualSalary (number — annual salary in NOK),
+            hourlyWage (number — hourly wage in NOK),
+            remunerationType ("MONTHLY_WAGE" | "HOURLY_WAGE" | "FEE" | "PIECEWORK_WAGE"),
+            employmentType ("ORDINARY" | "MARITIME" | "FREELANCE"),
+            employmentForm ("PERMANENT" | "TEMPORARY"),
+            workingHoursScheme ("NOT_SHIFT" is the default for office workers),
+            occupationCode ({{"id": OCCUPATION_CODE_ID}}) — job code (Berufsschlüssel/yrkeskode)
+  Flow: POST /employee/employment → POST /employee/employment/details with employmentId
+  Example: {{"employment": {{"id": "$responses.N.value.id"}}, "date": "2024-01-01",
+    "percentageOfFullTimeEquivalent": 100.0, "annualSalary": 600000, "remunerationType": "MONTHLY_WAGE",
+    "employmentType": "ORDINARY", "employmentForm": "PERMANENT", "workingHoursScheme": "NOT_SHIFT"}}
+
+GET /employee/employment/occupationCode  (look up job code / Berufsschlüssel):
+  Params: code="2411.01" (STYRK code string), fields="id,nameNO,code"
+  Use the id from the result as occupationCode.id in POST /employee/employment/details.
+  Only call this if the task explicitly provides a numeric job/occupation code.
 
 PUT /employee/{{id}}:
   REQUIRED: version (must come from GET response), firstName, lastName, userType, email, department
@@ -549,11 +580,15 @@ CRITICAL: The "fields" query param value NEVER uses dot notation. Dot notation (
 "$responses.N.values.1.id"           -> id of second item from GET list at step N
 CRITICAL: Only simple dot-path and numeric index placeholders are supported.
   DO NOT use JSONPath filter expressions like $responses.N.values[?(@.field==value)].id — NOT supported, will fail.
+  DO NOT use ternary expressions like ($responses.0.count > 0 ? $responses.0.values.0.id : 123) — NOT supported, will fail.
+  DO NOT use JavaScript or any conditional logic — only static values and $responses.N.* placeholders.
 
 === OUTPUT FORMAT ===
 Respond with ONLY a raw JSON object - no markdown, no code fences, no explanation.
-Each call object MUST have exactly these keys: "method", "endpoint", "body" (optional), "params" (optional).
+Each call object MUST have EXACTLY these keys: "method" (HTTP verb), "endpoint" (URL path), "body" (optional JSON object), "params" (optional query params object).
 CRITICAL: use "endpoint" not "path" or "url" for the URL path field.
+CRITICAL: NEVER use "tool_code", "function_call", "tool_name", "action", or any other format. Only REST API calls.
+CRITICAL: NEVER use JavaScript, ternary expressions, or conditional logic anywhere in the JSON. Only static values and $responses.N.* placeholders.
 
 {{
   "calls": [
