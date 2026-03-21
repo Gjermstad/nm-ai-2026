@@ -1,8 +1,8 @@
 # Progress Report: Tripletex AI Accounting Agent
 
-## 1. Current state (2026-03-21 ~18:00 CET)
+## 1. Current state (2026-03-21 ~21:00 CET)
 
-A Hybrid Repair agent is deployed to Cloud Run. PR #18 deployed and confirmed working (task #21 ✅ 8/8). PR #19 in progress — fixes critical `"vouchers"` → `"postings"` bug in `POST /ledger/voucher`, increases MAX_CALLS to 16.
+Bank account fix confirmed working (PR #22 deployed). Latest batch of 4 submissions analyzed. PR #24 in progress — fixes fields param dot notation, product number, voucher invalid fields, repair prompt reminders.
 
 **Deployed URL:** `https://tripletex-agent-997219197351.europe-north1.run.app`
 
@@ -20,18 +20,18 @@ A Hybrid Repair agent is deployed to Cloud Run. PR #18 deployed and confirmed wo
 - File handling: base64 decode + PDF text extraction via `pypdf` (3000 char cap per file)
 - Placeholder resolver: `$responses.N.value.FIELD` and `$responses.N.values.INDEX.FIELD`
 - Timeout budgeting: 255s deadline, checked before every LLM and API call
-- Hard cap of 12 total Tripletex API calls per request
+- Hard cap of 16 total Tripletex API calls per request
 - BETA endpoint block: confirmed 403 endpoints listed so Gemini never tries them
 - List response wrap: `if isinstance(plan, list): plan = {"calls": plan}` — prevents crash when Gemini returns raw array
 
-### What PR #18 fixed (merged, needs deploy)
-1. **POST /employee**: Added explicit NOTE — do NOT include `startDate` or `employmentDate` (these don't exist on Employee object, cause 422)
-2. **POST /supplier**: Added full endpoint section with required/optional fields and `isSupplier: true`
-3. **POST /customer**: Added `organizationNumber` to optional fields with note to always include it if provided
+### Bank account setup (PR #22)
+- GET /ledger/account (number=1920) → PUT /ledger/account with isBankAccount=true, bankAccountNumber="12345678903" (11 digits, no dots)
+- Added as mandatory first two calls whenever any invoice flow is detected
+- Confirmed working: 8/8 on timesheet+project invoice task
 
 ---
 
-## 3. Task types seen in validator (21 confirmed)
+## 3. Task types seen in validator (30+ confirmed)
 
 | # | Prompt summary (language) | Score | Tier | Root cause of failure / fix |
 |---|---|---|---|---|
@@ -65,6 +65,10 @@ A Hybrid Repair agent is deployed to Cloud Run. PR #18 deployed and confirmed wo
 | 28 | Currency exchange difference (disagio) on EUR invoice payment (Portuguese) | ⚠️ 4/8 | 3 | Bank account 422 on invoice creation. Fixed PR #22: PUT /ledger/account to set bankAccountNumber before invoice. |
 | 29 | Employee onboarding from PDF offer letter (French) | ❌ 0/? | 3 | 403 on first call (expired token — validator env). PDF extraction working (607 chars). |
 | 30 | Train ticket (Togbillett) expense as voucher, dept Logistikk, from PDF receipt (German) | ❌ 0/10 | 2 | "supplier"/"department" fields on voucher → 422. Fixed PR #22: only date/description/postings allowed on voucher. |
+| 31 | Overdue invoice + reminder fee (purregebyr) for Spanish customer | ❌ 0/10 | 3 | GET /invoice with `customer.id` in fields → 400 "Illegal fields filter: Fields filter contains '.'". `voucherRows` on voucher → 422. POST /order hardcoded customer.id → 422. Fixed PR #24. |
+| 32 | Currency exchange disagio — Fjelltopp AS, 10143 EUR invoice (Nynorsk) | ⚠️ 2/10 | 3 | Bank account ✅; PUT /invoice/:payment → 404 (INT32_MAX). POST /ledger/voucher → 422 system-generated postings (accounts 1500/3400). Unfixable (INT32_MAX + system accounts). |
+| 33 | Purregebyr (reminder fee) — Skogheim AS (Nynorsk) | ⚠️ 2/10 | 3 | Bank account ✅; Order+Invoice created ✅; payment → 404 (INT32_MAX). POST /ledger/voucher → 422 system-generated postings. Unfixable. |
+| 34 | Create product "Textbook" with product number 9036, 0% VAT (English) | ❌ 0/7 | 1 | POST /product missing `number` field → product number not set. Fixed PR #24: add `number` to POST /product. |
 
 **Patterns observed:**
 - Credit notes on existing invoices → works ✅
@@ -73,9 +77,12 @@ A Hybrid Repair agent is deployed to Cloud Run. PR #18 deployed and confirmed wo
 - New invoice creation → intermittently fails with bank account 422 (validator env), unfixable
 - Payment 404 for invoice IDs > INT32_MAX → unfixable (validator proxy overflow)
 - `GET /invoice` always requires `invoiceDateFrom` + `invoiceDateTo` — enforced in prompt (PR #12)
+- `GET /invoice` fields param: NEVER use dot notation like `customer.id` → 400 error (fixed PR #24)
 - `POST /customer` address: must use `postalAddress`/`physicalAddress` (fixed PR #13)
 - Mixed VAT rates: hardcode IDs 3/5/omit — do NOT call GET /vat/type (fixed PR #15)
 - `POST /travelExpense/cost` is BETA (fixed PR #17)
+- `POST /ledger/voucher` system-generated accounts (1500, 3400) → 422 unfixable
+- `POST /product` must include `number` field as string for product number (fixed PR #24)
 
 ---
 
@@ -84,45 +91,54 @@ A Hybrid Repair agent is deployed to Cloud Run. PR #18 deployed and confirmed wo
 ### Verified working (seen 200/201/204 in validator logs)
 - `GET /customer`, `GET /employee`, `GET /project`, `GET /department`, `GET /activity`
 - `POST /customer`, `POST /employee`, `POST /department`, `POST /project`, `POST /order`, `POST /product`
+- `POST /supplier` (confirmed ✅ — 6/6 score on supplier creation task)
+- `POST /timesheet/entry` (confirmed ✅ — 6/6, 8/8 on timesheet+project invoice tasks)
 - `POST /travelExpense`, `PUT /travelExpense/{id}`, `DELETE /travelExpense/{id}`
 - `PUT /order/{id}/:invoice`, `PUT /invoice/{id}/:payment`, `PUT /invoice/{id}/:createCreditNote`
-- `GET /invoice` (requires `invoiceDateFrom`/`invoiceDateTo`), `GET /ledger/account`, `GET /supplier`
-- `POST /ledger/voucher`
+- `GET /invoice` (requires `invoiceDateFrom`/`invoiceDateTo`; NO dot notation in fields param)
+- `GET /ledger/account`, `PUT /ledger/account/{id}`
+- `GET /supplier`
+- `POST /ledger/voucher` (body uses `"postings"` array; only date/description/postings allowed)
 
 ### Verified NOT working
 - `GET /vat/type` → 404
 - `POST /supplier/invoice` → 405
 - `POST /invoice/fromTimesheet` → 405
+- `POST /invoice/payment` → 405 (use PUT /invoice/{id}/:payment instead)
 - `POST /timesheet` (no `/entry`) → 404
 - `POST /timeSheet` (capital S) → 404
+- `PUT /invoice/{id}/:reversePayment` → 404
 
 ### BETA (always 403 in validator)
 - `PUT /project/{id}`, `DELETE /project/{id}`, `DELETE /customer/{id}`
 - `PUT /order/orderline/{id}`, `DELETE /order/orderline/{id}`
 - `POST /travelExpense/cost`
 
-### Unverified (added to prompt but not yet confirmed in validator logs)
-- `POST /supplier` — added PR #18; correct per API spec; not yet seen in live logs
-- `POST /timesheet/entry` — correct per API spec; not yet seen in live logs
+### Invalid voucher fields (cause 422 on POST /ledger/voucher)
+- `"vouchers"` — use `"postings"` instead
+- `"voucherRows"` — does not exist
+- `"voucherType"` — does not exist
+- `"supplier"` — does not exist on voucher
+- `"department"` — does not exist on voucher
+- `"customDimensions"`, `"dimension"` — do not exist
 
 ---
 
 ## 5. What to do next
 
 ### Immediate (top priority)
-1. **Redeploy** — PR #18 merged but not deployed. Run `git pull` then `gcloud run deploy` from `~/nm-ai-2026-1`
-2. **Submit repeatedly** — gather logs for new Tier 3 task types, and confirm PR #18 fixes for types #19/20/21
+1. **Merge PR #24** — fixes product number, fields dot notation, voucher invalid fields, repair prompt reminders
+2. **Redeploy** from `~/nm-ai-2026-1` after merge
+3. **Submit repeatedly** — confirm task #34 (product) now scores 7/7
 
 ### Known fixes pending (once confirmed by logs)
-3. **Ledger/voucher details** — if Tier 3 tasks include complex ledger entries, improve the POST /ledger/voucher guidance
-4. **Employment sub-resource** — if "set employee start date" returns: POST /employee/employment with `{employeeId, startDate}` but this is unverified; confirm from spec first
+4. **Employment sub-resource** — if "set start date" tasks return: POST /employee/employment with `{employeeId, startDate}` — unverified; confirm from spec first
 5. **GET /project with customer filter** — for project lookup: `GET /project?name=X&customer.id=Y`
-6. **POST /timesheet/entry** — confirm in validator logs; if it fails check exact field names
+6. **Purregebyr pattern** — if more reminder fee tasks appear: order+invoice ✅ but voucher for the fee → 422 (system-generated postings). Need to find alternative approach.
 
-### Strategy for remaining ~22 hours
-- Keep submitting to discover new task types (30 total, 21 seen so far)
-- Each successful new task type = points scored even if the validator submits it only once
-- Tier 3 tasks are now in the pool — focus on understanding what they ask and fixing failures fast
+### Strategy for remaining time
+- Keep submitting to discover remaining unseen task types
+- Focus on Tier 1 tasks that fail — they're simplest to fix and score reliably
 
 ---
 

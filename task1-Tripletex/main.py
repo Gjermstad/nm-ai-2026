@@ -352,7 +352,10 @@ POST /invoice  (alternative — create invoice directly linking one or more orde
 
 POST /product:
   REQUIRED: name
-  Optional: costExcludingVatCurrency (unit cost), priceExcludingVatCurrency (sale price)
+  Optional: number ("string" — the product number/SKU, e.g. "9036"; always include if the task specifies a product number),
+            costExcludingVatCurrency (unit cost), priceExcludingVatCurrency (sale price),
+            vatType ({{"id": 3}} for 25%, {{"id": 5}} for 15%, omit for 0%)
+  Example: {{"name": "Textbook", "number": "9036", "priceExcludingVatCurrency": 450}}
 
 GET /activity:
   Lists available work activities (e.g. "Analyse", "Consulting", "Support"). Use to find activity ID for timesheet entries.
@@ -397,8 +400,10 @@ DELETE /travelExpense/{{id}}:
 Register invoice payment (betaling på faktura):
   All parameters are QUERY PARAMS — there is no request body for this endpoint.
   Step 1: GET /invoice — REQUIRED params: invoiceDateFrom="2000-01-01", invoiceDateTo="{today}"
-    Optional filter params: customer.id, fields="id,invoiceNumber,amountCurrency,amountExcludingVatCurrency"
+    Optional filter params: fields="id,invoiceNumber,amountCurrency,amountExcludingVatCurrency"
     CRITICAL: invoiceDateFrom and invoiceDateTo are ALWAYS required — omitting them causes 422.
+    CRITICAL: Do NOT use dot notation in the fields param (e.g. "customer.id" will cause 400 "Illegal fields filter: Fields filter contains '.'").
+      Use only simple field names: "id,invoiceNumber,amountCurrency,amountExcludingVatCurrency"
     NOTE: The server does NOT filter by amountCurrency or amountExcludingVatCurrency — it may return ALL invoices.
     If multiple invoices are returned, select the correct index by matching the amount in the task:
       values.0 = lowest invoiceNumber (oldest), values.1 = second oldest, etc.
@@ -433,9 +438,12 @@ Ledger voucher (bilag):
   Every voucher must balance (sum of all amounts = 0). Example depreciation entry:
     {{"account": {{"id": EXPENSE_ACCOUNT_ID}}, "amount": 91175}},   <- debit expense account
     {{"account": {{"id": ASSET_ACCOUNT_ID}},   "amount": -91175}}   <- credit asset/accumulated depreciation account
-  DO NOT add "supplier", "department", "customDimensions", "dimension", or "vouchers" fields to the voucher body or to individual posting objects — none of these exist and all cause 422.
+  DO NOT add "supplier", "department", "customDimensions", "dimension", "vouchers", "voucherRows", "voucherType" fields to the voucher body or to individual posting objects — none of these exist and all cause 422.
   The only valid top-level fields on POST /ledger/voucher are: date, description, postings.
   The only valid fields per posting are: account (with id), amount, and optionally description.
+  SYSTEM-GENERATED POSTINGS ERROR: If you get 422 "Posteringene på rad 0 er systemgenererte og kan ikke opprettes eller endres på utsiden av Tripletex",
+    it means Tripletex automatically generates those postings (e.g. accounts 1500 Kundefordringer, 2740, 3400 in invoice/reminder contexts).
+    In that case: skip the voucher entirely — do NOT attempt to post to those accounts manually.
   GET /ledger/account to find account IDs by number (e.g. params: {{"number": "1500", "fields": "id,number,name"}})
   If GET /ledger/account returns count: 0 for an account, skip the voucher that depends on it.
   DELETE /ledger/voucher/{{id}}: GET /ledger/voucher first → DELETE /ledger/voucher/$responses.N.values.0.id
@@ -456,6 +464,7 @@ The following endpoints return 404 or 405 and must never be called:
   POST /invoice/fromTimesheet            → 405.
   POST /timesheet (without /entry)       → 404. Use POST /timesheet/entry.
   PUT /invoice/{{id}}/:reversePayment    → 404. Does NOT exist.
+  POST /invoice/payment                  → 405. Does NOT exist. Use PUT /invoice/{{id}}/:payment instead.
   If a task asks to reverse a bank return (bankretur) so the invoice shows as outstanding again:
     Use PUT /invoice/$responses.N.values.0.id/:createCreditNote to reverse, then re-invoice if needed.
     Or post a corrective ledger voucher. Do NOT use :reversePayment.
@@ -543,6 +552,11 @@ FAILED CALLS:
 
 Read the error messages carefully and generate corrected calls.
 Each call object MUST use "endpoint" (not "path" or "url") for the URL path field.
+REMINDER for POST /ledger/voucher: only valid fields are date, description, postings.
+  Each posting only has: account ({{id}}), amount, optionally description.
+  DO NOT use voucherRows, voucherType, supplier, department, customDimensions, vouchers — these cause 422.
+REMINDER for GET /invoice fields param: do NOT use dot notation (e.g. "customer.id") — causes 400.
+  Use only: "id,invoiceNumber,amountCurrency,amountExcludingVatCurrency"
 Return ONLY a raw JSON object — no markdown, no explanation:
 {{"calls": [...]}}
 """
