@@ -1,6 +1,65 @@
 # Progress Report: Astar Island Operator (Task 2)
 
-## 0. Latest Session Update (2026-03-21, Saturday ~20:02 Oslo)
+## 0. Latest Session Update (2026-03-21, Saturday ~20:38 Oslo)
+
+- Goal for this pass: maximize Round 17 score while preserving deadline safety.
+- Live hosted optimization run executed on `https://astar-operator-u4ol5cv7ra-lz.a.run.app`:
+  - profile switched to `aggressive`
+  - run mode enabled and monitored
+  - query usage increased from `3/50` to `48/50`
+  - run mode stopped before deadline-risk window
+- Issue encountered during aggressive rebuild:
+  - `/status` reported `floor_ok=false` + `submit_ready=false` across seeds
+  - validation errors were near-floor drift (`0.009999...`) rather than hard logic failures
+  - stale error observed: `last_error=\"Submit failed for seed 4\"`
+- Live recovery used for active round safety (no mid-round redeploy):
+  - switched profile to `safe`
+  - `POST /draft/rebuild` => succeeded
+  - `/status` confirmed `floor_ok_all=true` and `submit_ready_all=true`
+  - `POST /submit/all` => accepted for all seeds (`failed=[]`)
+- Final hosted state after recovery submit:
+  - `queries.used/max=48/50`
+  - `submitted_count=5`
+  - `run_enabled=false`
+  - `last_error=null`
+  - `seconds_to_close=4222.116424`
+  - per-seed query distribution: seed0 `11`, seed1 `8`, seed2 `8`, seed3 `10`, seed4 `10`
+- Local code hardening prepared (not redeployed mid-round to avoid state loss risk):
+  - `task2-Astar/core.py`: numeric floor handling improved to avoid `0.009999...` false floor failures
+  - `task2-Astar/tests/test_core.py`: added regression for near-floor float roundoff in validation
+  - local tests: `pytest -q task2-Astar/tests/test_core.py` => `7 passed`
+
+## 0.1 Previous Session Update (2026-03-21, Saturday ~20:12 Oslo)
+
+- Continued Task 2 with required file-read order:
+  - `task2-Astar/AGENT.md`
+  - `task2-Astar/PROGRESS.md`
+  - `task2-Astar/SPEC.md`
+- Executed hosted-first smoke against:
+  - `https://astar-operator-u4ol5cv7ra-lz.a.run.app`
+- Hosted checks and actions:
+  - `/health` confirmed `status=ok`, active round 17, `token_present=true`
+  - initial `/status` confirmed active round 17 with `queries.used/max=2/50`, `submitted_count=5`, `run_enabled=false`, `last_error=null`
+  - `POST /run/start` succeeded; during run `/status` showed query progression `2 -> 3`
+  - `POST /run/stop` succeeded (`run_enabled=false`)
+  - `POST /draft/rebuild` succeeded (`{"status":"ok","seeds":5}`)
+  - post-rebuild `/status` confirmed per-seed `validation.submit_ready=true` for all 5 seeds
+  - `POST /submit/seed` with `seed_index=0` accepted
+  - `POST /submit/all` accepted (`failed=[]`, all seeds accepted)
+- Final hosted state captured from `/status`:
+  - `queries.used/max=3/50`
+  - `submitted_count=5`
+  - `run_enabled=false`
+  - `last_error=null`
+  - `seconds_to_close=5788.32158`
+- Hosted blocker + fix in this environment:
+  - initial sandboxed DNS call to `run.app` failed (`Could not resolve host`)
+  - fixed by rerunning hosted smoke with unrestricted network execution; local fallback was not required because hosted flow succeeded end-to-end.
+- Reliability constraints preserved:
+  - no architecture changes
+  - floor safety (`0.01`) and deadline guard behavior unchanged
+
+## 0.2 Previous Session Update (2026-03-21, Saturday ~20:02 Oslo)
 
 - Deployed Task 2 service to Cloud Run in GCP project `ai-nm26osl-1730`:
   - service: `astar-operator`

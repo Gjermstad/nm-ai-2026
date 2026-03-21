@@ -2,7 +2,7 @@
 
 > NM i AI 2026 — Task 2 handoff/control file
 > Last updated: 2026-03-21 (Saturday, Oslo)
-> Status: Cloud Run deployed and hosted smoke completed on Round 17 with successful 5/5 submissions. Local reliability fixes (strict floor + stale submit error clearing) are in production.
+> Status: Round 17 optimization run completed with `48/50` queries and refreshed `5/5` hosted submissions (~20:38 Oslo). Aggressive-profile floor validation drift was mitigated live by switching back to safe profile before rebuild+submit; local numeric floor-tolerance patch is prepared and tested.
 
 ---
 
@@ -35,7 +35,7 @@ Implemented components:
 - Backend service: `main.py`, `backend.py`, `core.py`
 - UI: `static/index.html`, `static/app.js`, `static/styles.css`
 - Docs: `SPEC.md`, `README.md`, `PROGRESS.md`
-- Tests: `tests/test_core.py` (6 passing)
+- Tests: `tests/test_core.py` (7 passing)
 
 Implemented internal endpoints:
 - `GET /health`, `GET /status`, `GET /seed/{seed_index}`
@@ -139,6 +139,42 @@ curl -sS "$BASE/status"
 - URL: `https://astar-operator-u4ol5cv7ra-lz.a.run.app`
 - Latest verified revision: `astar-operator-00002-6zj`
 
+### Latest hosted smoke snapshot (2026-03-21 ~20:12 Oslo)
+
+- Active round verified:
+  - `round_number=17`
+  - `round_id=3eb0c25d-28fa-48ca-b8e1-fc249e3918e9`
+  - `token_present=true`
+- Hosted-first flow executed:
+  - `/health` and `/status` confirmed healthy active round
+  - `POST /run/start` then `POST /run/stop` succeeded
+  - query progression confirmed while run mode enabled: `queries.used 2 -> 3`
+  - `POST /draft/rebuild` succeeded
+  - per-seed validation confirmed `submit_ready=true` for all 5 seeds
+  - `POST /submit/seed` (`seed_index=0`) succeeded
+  - `POST /submit/all` succeeded with `failed=[]`
+- Final status fields (post-smoke):
+  - `queries.used/max=3/50`
+  - `submitted_count=5`
+  - `run_enabled=false`
+  - `last_error=null`
+  - `seconds_to_close=5788.32158`
+
+### Round 17 optimization + recovery (2026-03-21 ~20:25-20:38 Oslo)
+
+- Optimization run:
+  - set profile to `aggressive`
+  - ran hosted query loop from `3/50` to `48/50`
+  - coverage reached: seed0 `79.12%`, seed1 `73.06%`, seed2 `73.31%`, seed3 `66.38%`, seed4 `79.75%`
+- Incident observed:
+  - aggressive rebuild produced `floor_ok=false`/`submit_ready=false` across seeds due numeric near-floor drift (`0.009999...` style values)
+- Live recovery (no redeploy during active round):
+  - stopped run mode immediately
+  - switched profile back to `safe`
+  - rebuilt drafts and confirmed `floor_ok_all=true`, `submit_ready_all=true`
+  - executed `submit/all` successfully (`failed=[]`)
+  - final hosted state: `run_enabled=false`, `queries.used/max=48/50`, `submitted_count=5`, `last_error=null`
+
 ---
 
 ## 5. Known Gaps To Address Next
@@ -166,4 +202,4 @@ curl -sS "$BASE/status"
 
 Use this when starting a new session:
 
-"Continue Task 2 Astar from `task2-Astar`. Read `AGENT.md`, `PROGRESS.md`, and `SPEC.md` first, then run a live smoke workflow: start local app, verify active round + query progression, rebuild drafts, validate per-seed readiness, submit one seed then submit all, and report blockers with fixes. Keep the existing architecture; optimize for fast reliable competition execution."
+"Continue Task 2 Astar from `task2-Astar`. Read `AGENT.md`, `PROGRESS.md`, and `SPEC.md` first, then run a hosted-first smoke workflow (`/health`, `/status`, `run/start`, query progression, `run/stop`, `draft/rebuild`, `submit/seed`, `submit/all`) and only fall back to local if hosted is blocked. Report final `queries.used/max`, `submitted_count`, `run_enabled`, `last_error`, and `seconds_to_close`. Keep the existing architecture; optimize for fast reliable competition execution."

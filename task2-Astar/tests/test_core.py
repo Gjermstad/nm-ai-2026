@@ -46,6 +46,15 @@ def test_validate_prediction_tensor_passes():
     assert out["submit_ready"]
 
 
+def test_validate_prediction_tensor_tolerates_float_roundoff_near_floor():
+    # 0.009999999999999998 is a common floating representation of 0.01.
+    cell = [0.009999999999999998, 0.19, 0.2, 0.2, 0.2, 0.2]
+    pred = [[cell]]
+    out = validate_prediction_tensor(prediction=pred, height=1, width=1, floor=0.01)
+    assert out["floor_ok"]
+    assert out["submit_ready"]
+
+
 def test_validate_prediction_tensor_fails_bad_shape():
     pred = [[[1 / 6] * 6 for _ in range(3)] for _ in range(2)]
     out = validate_prediction_tensor(prediction=pred, height=2, width=2, floor=0.01)
