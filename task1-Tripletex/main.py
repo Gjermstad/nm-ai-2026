@@ -257,7 +257,11 @@ TODAY'S DATE: {today}
 POST /employee:
   REQUIRED: firstName, lastName, userType, email, department ({{"id": DEPT_ID}})
   userType: "STANDARD" (default) | "EXTENDED" (administrator/kontoadministrator/admin) | "NO_ACCESS"
-  department.id: ALWAYS do GET /department first, use "$responses.0.values.0.id"
+  department.id: ALWAYS do GET /department first (filter by name if a department is named in the task).
+    CRITICAL: If GET /department returns count: 0 (department not found), you MUST create it first:
+      POST /department body: {{"name": "<department name from task>"}}
+      Then use "$responses.N.value.id" (from POST, not .values.0.id) for department.id in POST /employee.
+    Never send an unresolved placeholder as department.id — it causes 422 "wrong type for field".
   NOTE: Do NOT include startDate or employmentDate in the employee body — these fields do not exist on
         the Employee object and cause 422. Employment dates belong to a separate sub-resource; omit them.
 
@@ -309,6 +313,23 @@ POST /order:
   Do NOT use JSONPath filter expressions like $responses.N.values[?(@.x==y)].id — they are NOT supported.
   Optional: project ({{"id": ID}}) — link order to a project.
   Optional order line fields: employee ({{"id": ID}}), project ({{"id": ID}})
+
+⚠️ BANK ACCOUNT SETUP — required before any invoice creation:
+  A fresh Tripletex account has no bank account number registered, which causes 422
+  "Faktura kan ikke opprettes før selskapet har registrert et bankkontonummer."
+  Whenever the task involves creating an invoice (PUT /order/:invoice or POST /invoice),
+  ALWAYS add these two calls at the very beginning of your plan (before any other calls):
+    call 0: GET /ledger/account | params: {{"number": "1920", "fields": "id,version,number,name"}}
+    call 1: PUT /ledger/account/$responses.0.values.0.id
+      body: {{
+        "version": "$responses.0.values.0.version",
+        "number": 1920,
+        "name": "$responses.0.values.0.name",
+        "isBankAccount": true,
+        "bankAccountNumber": "1234.56.78903"
+      }}
+  Only after these two calls, proceed with GET /customer, POST /order, etc.
+  Do NOT skip this step for any invoice flow — it is always required on a fresh account.
 
 PUT /order/{{id}}/:invoice  (convert an existing order to a paid or unpaid invoice — preferred for single-order invoice):
   REQUIRED query params: invoiceDate=YYYY-MM-DD
@@ -406,6 +427,9 @@ Ledger voucher (bilag):
   Every voucher must balance (sum of all amounts = 0). Example depreciation entry:
     {{"account": {{"id": EXPENSE_ACCOUNT_ID}}, "amount": 91175}},   <- debit expense account
     {{"account": {{"id": ASSET_ACCOUNT_ID}},   "amount": -91175}}   <- credit asset/accumulated depreciation account
+  DO NOT add "supplier", "department", "customDimensions", "dimension", or "vouchers" fields to the voucher body or to individual posting objects — none of these exist and all cause 422.
+  The only valid top-level fields on POST /ledger/voucher are: date, description, postings.
+  The only valid fields per posting are: account (with id), amount, and optionally description.
   GET /ledger/account to find account IDs by number (e.g. params: {{"number": "1500", "fields": "id,number,name"}})
   If GET /ledger/account returns count: 0 for an account, skip the voucher that depends on it.
   DELETE /ledger/voucher/{{id}}: GET /ledger/voucher first → DELETE /ledger/voucher/$responses.N.values.0.id
