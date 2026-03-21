@@ -468,9 +468,11 @@ GET /activity:
   available activities, then pick the most relevant one. Do NOT skip the timesheet step.
 
 POST /activity  (create a new work activity — use when task asks to create an activity):
-  REQUIRED: name
+  REQUIRED: name, activityType
+  activityType MUST be one of these string values (NOT an object/id): "GENERAL_PROJECT_ACTIVITY", "TASK", "INTERNAL_ACTIVITY"
+  Use "GENERAL_PROJECT_ACTIVITY" unless the task specifies otherwise.
   Optional: description
-  Example: {{"name": "Design", "description": "Design work"}}
+  Example: {{"name": "Design", "description": "Design work", "activityType": "GENERAL_PROJECT_ACTIVITY"}}
 
 POST /timesheet/entry  (log worked hours — NOT /timesheet or /timeSheet):
   REQUIRED: employee ({{"id": ID}}), project ({{"id": ID}}), activity ({{"id": ID}}), date ("YYYY-MM-DD"), hours (number)
