@@ -97,6 +97,10 @@ Note on T1/T2: the leaderboard columns T1/T2/T3 are the three competition tasks 
 | 16 | Set fixed price 324900 NOK on project "Migração para nuvem", invoice 50% milestone, PM Tiago Santos (Portuguese) | ❌ 0/8 | 0/8 | 3 | Gemini returned raw JSON array `[...]` → crash `AttributeError: list has no .get`. Fixed PR #16: wrap list in dict |
 | 17 | Invoice Bergwerk GmbH: 3 lines, 25%/15%/0% VAT (German) | ❌ 0/8 | 0/8 | 2 | Order created ✓ (vatType fix working); invoice 422 bank account env issue |
 | 18 | Supplier invoice INV-2026-4811 from Montanha Lda 33200 NOK incl. VAT, account 7300 (Portuguese) | ❌ 0/8 | 0/8 | 2 | `POST /supplier/invoice` → 405; `POST /supplierInvoice` also does not exist. Fallback: ledger voucher |
+| 19 | Create employee + set employment start date (Norwegian) | ❌ 0/8 | 0/8 | 1 | Gemini added `startDate`/`employmentDate` to POST /employee body → 422. These fields don't exist on Employee object; they belong to Employment sub-resource. Fixed PR #18: added NOTE to prompt. |
+| 20 | Create supplier (leverandør) (Norwegian/German) | ❌ 0/7 | 0/8 | 1 | Gemini returned `{"calls": []}` — POST /supplier not in prompt. Fixed PR #18: added POST /supplier section. |
+| 21 | Create customer with organizationNumber (Norwegian) | ❌ 0/8 | 0/8 | 1 | Customer created (201) but `organizationNumber` missing from body → validator check failed. Fixed PR #18: added organizationNumber to POST /customer optional fields. |
+| 22 | (New type from submit #35 — details pending) | ❌ | 0/8 | ? | — |
 
 **Patterns observed:**
 - Credit notes on existing invoices → works perfectly ✅
@@ -106,6 +110,9 @@ Note on T1/T2: the leaderboard columns T1/T2/T3 are the three competition tasks 
 - `params` placeholders (e.g. `paidAmount: "$responses.N.value.amountCurrency"`) were never resolved → fixed in PR #12
 - Repair pass using `"path"` or `"url"` instead of `"endpoint"` → fixed in PR #11
 - `POST /customer` address fields: `postalAddress`/`physicalAddress` (not `visitingAddress`) → fixed in PR #13
+- `POST /employee`: `startDate`/`employmentDate` are not Employee fields → 422; omit them → fixed PR #18
+- `POST /supplier` was missing from prompt → Gemini returned empty plan → fixed PR #18
+- `POST /customer` missing `organizationNumber` → validator fails even on 201 → fixed PR #18
 
 ## 10. Endpoint verification status
 

@@ -258,6 +258,8 @@ POST /employee:
   REQUIRED: firstName, lastName, userType, email, department ({{"id": DEPT_ID}})
   userType: "STANDARD" (default) | "EXTENDED" (administrator/kontoadministrator/admin) | "NO_ACCESS"
   department.id: ALWAYS do GET /department first, use "$responses.0.values.0.id"
+  NOTE: Do NOT include startDate or employmentDate in the employee body — these fields do not exist on
+        the Employee object and cause 422. Employment dates belong to a separate sub-resource; omit them.
 
 PUT /employee/{{id}}:
   REQUIRED: version (must come from GET response), firstName, lastName, userType, email, department
@@ -267,16 +269,25 @@ PUT /employee/{{id}}:
 
 POST /customer:
   REQUIRED: name
-  Optional: email, phoneNumber, isCustomer (true),
+  Optional: email, phoneNumber, isCustomer (true), organizationNumber ("9-digit string"),
             postalAddress ({{"addressLine1": "...", "postalCode": "...", "city": "..."}}),
             physicalAddress ({{"addressLine1": "...", "postalCode": "...", "city": "..."}})
   NOTE: Address fields use postalAddress/physicalAddress — NOT visitingAddress or visitingAddressLine1.
         Omit country if the address is in Norway.
+        Include organizationNumber if provided in the task.
 
 PUT /customer/{{id}}:
   REQUIRED: version (from GET), name
   Flow: GET /customer?name=X → PUT /customer/$responses.0.values.0.id
   body must include: "version": "$responses.0.values.0.version"
+
+POST /supplier  (create a new supplier / leverandør):
+  REQUIRED: name
+  Optional: email, phoneNumber, organizationNumber ("9-digit string"),
+            postalAddress ({{"addressLine1": "...", "postalCode": "...", "city": "..."}}),
+            physicalAddress ({{"addressLine1": "...", "postalCode": "...", "city": "..."}})
+  NOTE: Use isSupplier: true (not isCustomer) when creating a supplier.
+        Address fields: postalAddress/physicalAddress — NOT visitingAddress.
 
 POST /department:
   REQUIRED: name
