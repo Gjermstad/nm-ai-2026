@@ -198,6 +198,15 @@ def execute_calls(calls: list, responses: list, base_url: str, session_token: st
         endpoint = resolve(endpoint, responses)
         url = f"{base_url}{endpoint}"
 
+        # Skip calls that still contain unresolved placeholders — a dependency returned no results.
+        # Sending a literal "$responses.N.values.0.id" string causes 422 "wrong type for field".
+        combined_str = json.dumps({"body": body, "params": params, "endpoint": endpoint})
+        if "$responses." in combined_str:
+            logger.warning("CALL %d: skipping — unresolved placeholder in call (dependency returned no results): %s",
+                           i, combined_str[:300])
+            responses.append({"error": "unresolved placeholder — dependency call returned no results"})
+            continue
+
         logger.info("CALL %d: %s %s | body=%s | params=%s",
                     i, method, url,
                     json.dumps(body)[:300] if body else None, params)
@@ -362,6 +371,11 @@ GET /activity:
   Params: name="Analyse" (search by name), fields="id,name"
   Returns values[]: [{{"id": INT, "name": "..."}}]
 
+POST /activity  (create a new work activity — use when task asks to create an activity):
+  REQUIRED: name
+  Optional: description
+  Example: {{"name": "Design", "description": "Design work"}}
+
 POST /timesheet/entry  (log worked hours — NOT /timesheet or /timeSheet):
   REQUIRED: employee ({{"id": ID}}), project ({{"id": ID}}), activity ({{"id": ID}}), date ("YYYY-MM-DD"), hours (number)
   Optional: hourlyRate (number), comment ("...")
@@ -449,7 +463,9 @@ Ledger voucher (bilag):
   DELETE /ledger/voucher/{{id}}: GET /ledger/voucher first → DELETE /ledger/voucher/$responses.N.values.0.id
 
 Ledger postings (posteringer):
-  GET /ledger/posting with params: {{"dateFrom": "YYYY-MM-DD", "dateTo": "YYYY-MM-DD", "fields": "id,date,description,amount,account"}}
+  GET /ledger/posting with params: {{"dateFrom": "YYYY-MM-DD", "dateTo": "YYYY-MM-DD", "fields": "id,date,description,amount,account(id,number,name)"}}
+  NOTE: To get nested account fields use parentheses syntax: account(id,number,name) — NOT dot notation (account.id causes 400).
+  When analyzing postings to compare two periods, make two GET /ledger/posting calls (one per period).
 
 === ENDPOINTS THAT DO NOT EXIST — NEVER USE ===
 The following endpoints return 404 or 405 and must never be called:
@@ -479,6 +495,13 @@ Do NOT generate calls to any of these — they will always fail:
   DELETE /order/orderline/{{id}}   → BETA, always 403. Cannot delete order lines via API.
   POST /travelExpense/cost         → BETA, always 403. Cannot add individual expense cost lines via API.
 If the task asks you to do something only possible via a BETA endpoint, skip that action entirely.
+
+=== FIELDS PARAM RULES ===
+CRITICAL: The "fields" query param value NEVER uses dot notation. Dot notation (e.g. "account.id") causes 400 "Illegal fields filter: Fields filter contains '.'".
+  - For nested objects use parentheses: account(id,number,name) — NOT account.id, account.number
+  - For flat fields just list them: "id,name,amount"
+  - This rule applies to ALL endpoints: GET /ledger/posting, GET /invoice, GET /customer, etc.
+  - Note: "customer.id" as a QUERY FILTER PARAM KEY (not in the fields= value) is fine for filtering.
 
 === PLACEHOLDER SYNTAX ===
 "$responses.N.value.id"         -> id from POST/PUT response at step N
@@ -555,8 +578,8 @@ Each call object MUST use "endpoint" (not "path" or "url") for the URL path fiel
 REMINDER for POST /ledger/voucher: only valid fields are date, description, postings.
   Each posting only has: account ({{id}}), amount, optionally description.
   DO NOT use voucherRows, voucherType, supplier, department, customDimensions, vouchers — these cause 422.
-REMINDER for GET /invoice fields param: do NOT use dot notation (e.g. "customer.id") — causes 400.
-  Use only: "id,invoiceNumber,amountCurrency,amountExcludingVatCurrency"
+REMINDER for fields param on ANY endpoint: NEVER use dot notation (e.g. "account.id", "customer.id") — causes 400.
+  Use parentheses for nested fields: account(id,number,name). For flat fields: "id,name,amount".
 Return ONLY a raw JSON object — no markdown, no explanation:
 {{"calls": [...]}}
 """

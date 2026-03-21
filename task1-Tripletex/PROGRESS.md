@@ -1,6 +1,6 @@
 # Progress Report: Tripletex AI Accounting Agent
 
-## 1. Current state (2026-03-21 ~21:00 CET)
+## 1. Current state (2026-03-21 ~22:00 CET)
 
 Bank account fix confirmed working (PR #22 deployed). Latest batch of 4 submissions analyzed. PR #24 in progress — fixes fields param dot notation, product number, voucher invalid fields, repair prompt reminders.
 
@@ -69,6 +69,9 @@ Bank account fix confirmed working (PR #22 deployed). Latest batch of 4 submissi
 | 32 | Currency exchange disagio — Fjelltopp AS, 10143 EUR invoice (Nynorsk) | ⚠️ 2/10 | 3 | Bank account ✅; PUT /invoice/:payment → 404 (INT32_MAX). POST /ledger/voucher → 422 system-generated postings (accounts 1500/3400). Unfixable (INT32_MAX + system accounts). |
 | 33 | Purregebyr (reminder fee) — Skogheim AS (Nynorsk) | ⚠️ 2/10 | 3 | Bank account ✅; Order+Invoice created ✅; payment → 404 (INT32_MAX). POST /ledger/voucher → 422 system-generated postings. Unfixable. |
 | 34 | Create product "Textbook" with product number 9036, 0% VAT (English) | ❌ 0/7 | 1 | POST /product missing `number` field → product number not set. Fixed PR #24: add `number` to POST /product. |
+| 34b | Create product "Eau minérale" #7027, 36750 NOK, 15% VAT (French) | ✅ 6/7 | 1 | PR #24 fix confirmed working — number field included ✅ |
+| 35 | Month-end closing March 2026 — periodisering, avskriving, lønnsavsetning (Nynorsk) | ⚠️ 2/10 | 3 | Account 6030 not in validator → unresolved placeholder → 422 "wrong type for field". Other vouchers → system-generated postings 422. Fixed PR #25: skip calls with unresolved placeholders. |
+| 36 | Analyze ledger Jan vs Feb, find top 3 expense accounts, create projects + activities (Spanish) | ❌ 0/10 | 3 | GET /ledger/posting with dot notation in fields → 400. POST /activity not in prompt. Fixed PR #25: parentheses syntax, add POST /activity. |
 
 **Patterns observed:**
 - Credit notes on existing invoices → works ✅
