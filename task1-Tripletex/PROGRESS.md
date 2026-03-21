@@ -1,12 +1,12 @@
 # Progress Report: Tripletex AI Accounting Agent
 
-## 1. Current state (2026-03-21 ~22:00 CET)
+## 1. Current state (2026-03-21 ~23:00 CET)
 
-Bank account fix confirmed working (PR #22 deployed). Latest batch of 4 submissions analyzed. PR #24 in progress — fixes fields param dot notation, product number, voucher invalid fields, repair prompt reminders.
+All PRs up to #27 merged and deployed. Score: **23.3 Task 1 points, rank #218** (as of ~22:00 CET). 28/30 task types seen. 2 remaining task types undiscovered.
 
 **Deployed URL:** `https://tripletex-agent-997219197351.europe-north1.run.app`
 
-**Tier 3 tasks** are live since ~11:00 CET March 21. These include harder accounting tasks (ledger, complex multi-step).
+**Tier 3 tasks** live since ~11:00 CET March 21. Competition ends March 22 15:00 CET (~16h remaining).
 
 ---
 
@@ -18,20 +18,30 @@ Bank account fix confirmed working (PR #22 deployed). Latest batch of 4 submissi
 - Bounded repair pass: if any calls return 422 or 409, one corrective LLM call is made with full error context
 - Parse failure retry: if the LLM output fails JSON parsing, one corrective prompt is sent before giving up
 - File handling: base64 decode + PDF text extraction via `pypdf` (3000 char cap per file)
-- Placeholder resolver: `$responses.N.value.FIELD` and `$responses.N.values.INDEX.FIELD`
+- Placeholder resolver: `$responses.N.value.FIELD.SUBFIELD` (nested), `$responses.N.value.FIELD`, `$responses.N.values.INDEX.FIELD`
+- Unresolved placeholder detection: skip call if `$responses.` remains after resolve (prevents "wrong type for field" 422)
 - Timeout budgeting: 255s deadline, checked before every LLM and API call
 - Hard cap of 16 total Tripletex API calls per request
 - BETA endpoint block: confirmed 403 endpoints listed so Gemini never tries them
 - List response wrap: `if isinstance(plan, list): plan = {"calls": plan}` — prevents crash when Gemini returns raw array
+- Output format enforcement: bans tool_code/function_call/action output from Gemini
 
 ### Bank account setup (PR #22)
 - GET /ledger/account (number=1920) → PUT /ledger/account with isBankAccount=true, bankAccountNumber="12345678903" (11 digits, no dots)
 - Added as mandatory first two calls whenever any invoice flow is detected
 - Confirmed working: 8/8 on timesheet+project invoice task
 
+### Bank return reversal (PR #26)
+- GET /invoice → GET /invoice/{id}?fields=id,voucher(id) → PUT /ledger/voucher/$responses.1.value.voucher.id/:reverse?date=TODAY
+- NOT credit note (that cancels the invoice)
+
+### Employee sub-resources (PR #27)
+- POST /employee → POST /employee/employment → POST /employee/employment/details
+- employeeNumber as string field on employee
+
 ---
 
-## 3. Task types seen in validator (30+ confirmed)
+## 3. Task types seen in validator (28 confirmed + 2 unseen)
 
 | # | Prompt summary (language) | Score | Tier | Root cause of failure / fix |
 |---|---|---|---|---|
@@ -39,7 +49,7 @@ Bank account fix confirmed working (PR #22 deployed). Latest batch of 4 submissi
 | 2 | Create and send invoice to Fjelltopp AS, 42600 NOK, Nettverksteneste (Nynorsk) | ❌ 0/7 | 2 | Bank account 422 on `PUT /order/:invoice` — validator env issue |
 | 3 | Set fixed price 429500 NOK on project "ERP-implementering" for Elvdal AS, invoice 33% (Nynorsk) | ⚠️ 2/8 | 3 | Bank account 422 on invoice; fixed-price endpoint is BETA (403) |
 | 4 | Register payment on Brattli AS invoice, 31300 NOK "Konsulenttimer" (Norwegian) | ⚠️ 2/7 | 2 | GET /invoice missing `invoiceDateFrom`/`invoiceDateTo` → 422 → unresolved placeholder → 404 payment. Fixed PR #12. |
-| 5 | Reverse bank return — Lysgård AS, 15600 NOK "Konsulenttimer" → reinstate invoice (Norwegian) | ⚠️ 2/8 | 2 | Credit note was wrong approach (cancels invoice, not restores outstanding). Fixed PR #26: GET /invoice/{id}?fields=id,voucher(id) → PUT /ledger/voucher/{voucherId}/:reverse?date=TODAY |
+| 5 | Reverse bank return — Lysgård AS, 15600 NOK "Konsulenttimer" → reinstate invoice (Norwegian) | ⚠️ 2/8 | 2 | Credit note was wrong approach. Fixed PR #26: GET /invoice/{id}?fields=id,voucher(id) → PUT /ledger/voucher/{voucherId}/:reverse?date=TODAY |
 | 6 | Create order + invoice + payment for Waldstein GmbH, Netzwerkdienst + Beratungsstunden (German) | ⚠️ 4/8 | 2 | Invoice worked ✅; payment 404 — `paidAmount` placeholder not resolved in params. Fixed PR #12. |
 | 7 | Create project "Intégration Montagne" for Montagne SARL, PM Nathan Martin (French) | ✅ 8/8 | 1 | — |
 | 8 | Create order + invoice + payment for Río Verde SL, 2 products (Spanish) | ⚠️ 4/8 | 2 | Payment 404 — invoice ID 2147557274 > INT32_MAX; paidAmount hardcoded correctly. Unfixable (validator env). |
@@ -49,49 +59,51 @@ Bank account fix confirmed working (PR #22 deployed). Latest batch of 4 submissi
 | 12 | Create departments "Drift", "Logistikk", "IT" (Portuguese) | ✅ 8/8 | 1 | — |
 | 13 | Create and SEND invoice to Stormberg AS, 31250 NOK, Opplæring (Norwegian) | ❌ 0/8 | 2 | Bank account 422 — validator env issue |
 | 14 | Invoice Sierra SL: 3 lines, 25%/15%/0% VAT (Spanish) | ❌ 0/8 | 2 | Same GET /vat/type → 404. Fixed PR #15. |
-| 15 | Travel expense for Pablo Rodríguez "Conferencia Ålesund", per diems + flight + taxi (Spanish) | ⚠️ 2/8 | 2 | Header created ✓; individual costs BETA (POST /travelExpense/cost → 403). Fixed PR #17: note in prompt. |
+| 15 | Travel expense for Pablo Rodríguez "Conferencia Ålesund", per diems + flight + taxi (Spanish) | ⚠️ 2/8 | 2 | Header created ✓; individual costs BETA (POST /travelExpense/cost → 403). Unfixable. |
 | 16 | Fixed price 324900 NOK project "Migração para nuvem", invoice 50% milestone (Portuguese) | ❌ 0/8 | 3 | Gemini returned raw JSON array → crash `AttributeError`. Fixed PR #16: wrap list in dict. |
 | 17 | Invoice Bergwerk GmbH: 3 lines, 25%/15%/0% VAT (German) | ❌ 0/8 | 2 | Order ✓ (vatType fix working); invoice 422 bank account env issue. |
-| 18 | Supplier invoice INV-2026-4811 from Montanha Lda 33200 NOK, account 7300 (Portuguese) | ❌ 0/8 | 2 | `POST /supplier/invoice` → 405. Fixed PR #17: use POST /ledger/voucher for supplier invoices. |
-| 19 | Create employee + set employment start date (Norwegian) | ❌ 0/8 | 1 | `startDate`/`employmentDate` not on Employee object → 422. Fixed PR #18: NOTE in prompt. |
-| 20 | Create supplier (leverandør) (Norwegian/German) | ❌ 0/8 | 1 | Gemini returned `{"calls": []}` — POST /supplier not in prompt. Fixed PR #18: added endpoint. |
-| 21 | Create customer with organizationNumber (Norwegian) | ❌ 0/8 | 1 | Customer created (201) but `organizationNumber` missing from body. Fixed PR #18: added to optional fields. |
+| 18 | Supplier invoice INV-2026-4811 from Montanha Lda 33200 NOK, account 7300 (Portuguese) | ❌ 0/8 | 2 | `POST /supplier/invoice` → 405. Accounts 2400/2710 → system-generated. Unfixable. |
+| 19 | Create employee + set employment start date (Norwegian) | ❌ 0/8 | 1 | `startDate`/`employmentDate` not on Employee object → 422. Fixed PR #18. Also PR #27 adds employment sub-resources. |
+| 20 | Create supplier (leverandør) (Norwegian/German) | ✅ 6/6 | 1 | POST /supplier added PR #18, confirmed ✅ |
+| 21 | Create customer with organizationNumber (Norwegian) | ❌ 0/8 | 1 | Customer created (201) but `organizationNumber` missing from body. Fixed PR #18. |
 | 22 | Unknown (from submit #35 — logs not captured) | ❌ | ? | — |
 | 23 | Year-end closing / depreciation booking — årsoppgjør (Nynorsk) | ❌ 0/10 | 3 | `"vouchers"` field bug → all POST /ledger/voucher 422. Fixed PR #19: use `"postings"`. Also account 1209 not in validator env. |
 | 24 | Ledger error correction — find and fix 4 accounting errors (Portuguese) | ❌ 0/? | 3 | 403 on first call (expired session token — validator env issue). Unfixable. |
 | 25 | Travel expense with per diems + flight + taxi (German) | ⚠️ 2/8 | 2 | Same as #15: header ✅, POST /travelExpense/cost BETA → 403. Unfixable. |
 | 26 | Custom accounting dimension "Region" + voucher linked to dimension (English) | ❌ 0/13 | 3 | POST /accounting/dimension → 404. Dimension fields on postings also 422. Fixed PR #21: skip dimensions, post voucher without them. |
-| 27 | Timesheet 12h "Design" on "Configuration cloud" for Soleil SARL, generate project invoice (French) | ✅ 6/6 | 2 | POST /timesheet/entry ✅ confirmed. Invoice failed (bank account 422) but still 6/6. |
+| 27 | Timesheet 12h "Design" on "Configuration cloud" for Soleil SARL, generate project invoice (French) | ✅ 6/6 | 2 | POST /timesheet/entry ✅ confirmed. Invoice failed (bank account 422). |
 | 28 | Currency exchange difference (disagio) on EUR invoice payment (Portuguese) | ⚠️ 4/8 | 3 | Bank account 422 on invoice creation. Fixed PR #22: PUT /ledger/account to set bankAccountNumber before invoice. |
 | 29 | Employee onboarding from PDF offer letter (French) | ❌ 0/? | 3 | 403 on first call (expired token — validator env). PDF extraction working (607 chars). |
 | 30 | Train ticket (Togbillett) expense as voucher, dept Logistikk, from PDF receipt (German) | ❌ 0/10 | 2 | "supplier"/"department" fields on voucher → 422. Fixed PR #22: only date/description/postings allowed on voucher. |
-| 31 | Overdue invoice + reminder fee (purregebyr) for Spanish customer | ❌ 0/10 | 3 | GET /invoice with `customer.id` in fields → 400 "Illegal fields filter: Fields filter contains '.'". `voucherRows` on voucher → 422. POST /order hardcoded customer.id → 422. Fixed PR #24. |
-| 32 | Currency exchange disagio — Fjelltopp AS, 10143 EUR invoice (Nynorsk) | ⚠️ 2/10 | 3 | Bank account ✅; PUT /invoice/:payment → 404 (INT32_MAX). POST /ledger/voucher → 422 system-generated postings (accounts 1500/3400). Unfixable (INT32_MAX + system accounts). |
+| 31 | Overdue invoice + reminder fee (purregebyr) for Spanish customer | ❌ 0/10 | 3 | GET /invoice with `customer.id` in fields → 400 "Illegal fields filter: Fields filter contains '.'". `voucherRows` on voucher → 422. Fixed PR #24. |
+| 32 | Currency exchange disagio — Fjelltopp AS, 10143 EUR invoice (Nynorsk) | ⚠️ 2/10 | 3 | Bank account ✅; PUT /invoice/:payment → 404 (INT32_MAX). POST /ledger/voucher → 422 system-generated postings (accounts 1500/3400). Unfixable. |
 | 33 | Purregebyr (reminder fee) — Skogheim AS (Nynorsk) | ⚠️ 2/10 | 3 | Bank account ✅; Order+Invoice created ✅; payment → 404 (INT32_MAX). POST /ledger/voucher → 422 system-generated postings. Unfixable. |
-| 34 | Create product "Textbook" with product number 9036, 0% VAT (English) | ❌ 0/7 | 1 | POST /product missing `number` field → product number not set. Fixed PR #24: add `number` to POST /product. |
+| 34 | Create product "Textbook" with product number 9036, 0% VAT (English) | ❌ 0/7 | 1 | POST /product missing `number` field → product number not set. Fixed PR #24. |
 | 34b | Create product "Eau minérale" #7027, 36750 NOK, 15% VAT (French) | ✅ 6/7 | 1 | PR #24 fix confirmed working — number field included ✅ |
-| 35 | Month-end closing March 2026 — periodisering, avskriving, lønnsavsetning (Nynorsk) | ⚠️ 2/10 | 3 | Account 6030 not in validator → unresolved placeholder → 422 "wrong type for field". Other vouchers → system-generated postings 422. Fixed PR #25: skip calls with unresolved placeholders. |
-| 36 | Analyze ledger Jan vs Feb, find top 3 expense accounts, create projects + activities (Spanish) | ❌ 0/10 | 3 | GET /ledger/posting with dot notation in fields → 400. POST /activity not in prompt. Fixed PR #25: parentheses syntax, add POST /activity. |
-| 37 | Supplier invoice from PDF, Rio Azul Lda, IT-konsulenttjenester, INV-2026-6669 (Portuguese) | ⚠️ 2/10 | 2 | POST /ledger/voucher to accounts 2400/2710/6300 → 422 system-generated. Repair tried /supplierinvoice → 404. Unfixable with current approach. |
+| 35 | Month-end closing March 2026 — periodisering, avskriving, lønnsavsetning (Nynorsk) | ⚠️ 2/10 | 3 | Account 6030 not in validator → unresolved placeholder → 422. Fixed PR #25: skip calls with unresolved placeholders. |
+| 35x | Month-end closing (Norwegian/Spanish variants) | ⚠️ 2/10 | 3 | ALL voucher account postings → 422 system-generated in this validator env (1290, 1720, 5000, 2900, 6020, 6500). 2pts = GET /ledger/account calls only. Fundamentally unfixable. |
+| 36 | Analyze ledger Jan vs Feb, find top 3 expense accounts, create projects + activities (Spanish) | ❌ 0/10 | 3 | GET /ledger/posting with dot notation → 400. POST /activity not in prompt. Fixed PR #25: parentheses syntax, add POST /activity. |
+| 37 | Supplier invoice from PDF, Rio Azul Lda, IT-konsulenttjenester, INV-2026-6669 (Portuguese) | ⚠️ 2/10 | 2 | POST /ledger/voucher to accounts 2400/2710/6300 → 422 system-generated. Unfixable. |
 | 38 | Complete project lifecycle: create project, log time x2, register supplier cost, create invoice (English) | ⚠️ 2/11 | 3 | Gemini hallucinated `tool_code` format instead of REST API calls → all skipped. Fixed PR #27: reinforce output format, ban tool_code. |
 | 39 | Create and send invoice to Lumière SARL, 34100 NOK, Stockage cloud (French) | ✅ 7/7 | 2 | Bank account ✅, sendToCustomer=true ✅ |
-| 40 | Create employee from PDF employment contract — Maximilian Fischer, Kvalitetskontroll dept (German) | ❌ 0/22 | 3 | Gemini used ternary expression for department.id → unresolved placeholder → employee skipped. Missing: employeeNumber, POST /employee/employment, POST /employee/employment/details. Fixed PR #27. |
-| 41 | Bank statement reconciliation CSV — match payments to customer/supplier invoices, handle partial payments (German) | ❌ 0/10 | 3 | Customer invoice payment → 404 (INT32_MAX). Supplier payment voucher → 422 system-generated. Repair POST /supplierPayment → 404. POST /bank/reconciliation? Unknown. |
-| 35x | Month-end closing (Norwegian/Spanish variants) | ⚠️ 2/10 | 3 | CONSISTENTLY: ALL voucher account postings → 422 system-generated in this validator env (1290, 1720, 5000, 2900, 6020, 6500). The 2pts are from GET /ledger/account calls. Fundamentally unfixable — Tripletex treats all manual journal entries as system-generated. |
+| 40 | Create employee from PDF employment contract — Maximilian Fischer, Kvalitetskontroll dept (German) | ❌ 0/22 | 3 | Gemini used ternary expression for department.id → unresolved placeholder → employee skipped. Fixed PR #27: ban ternary, add employeeNumber + employment sub-resources. |
+| 41 | Bank statement reconciliation CSV — match payments to customer/supplier invoices (German) | ❌ 0/10 | 3 | Customer payment → 404 (INT32_MAX). Supplier payment voucher → 422 system-generated. Repair POST /supplierPayment → 404. Unfixable. |
+| ? | Unseen #1 | — | ? | — |
+| ? | Unseen #2 | — | ? | — |
 
 **Patterns observed:**
 - Credit notes on existing invoices → works ✅
 - Create project + assign PM → works ✅
 - Create departments → works ✅
+- Create supplier → works ✅
+- Log timesheet hours → works ✅
+- Create/send invoice → works ✅ (when bank account is configured)
+- Payment via PUT /invoice/:payment → works IF invoice ID ≤ INT32_MAX ✅
+- Bank return reversal → works ✅ (PR #26 — not yet confirmed in live logs)
+- Employee with sub-resources → added PR #27, not yet confirmed
 - New invoice creation → intermittently fails with bank account 422 (validator env), unfixable
 - Payment 404 for invoice IDs > INT32_MAX → unfixable (validator proxy overflow)
-- `GET /invoice` always requires `invoiceDateFrom` + `invoiceDateTo` — enforced in prompt (PR #12)
-- `GET /invoice` fields param: NEVER use dot notation like `customer.id` → 400 error (fixed PR #24)
-- `POST /customer` address: must use `postalAddress`/`physicalAddress` (fixed PR #13)
-- Mixed VAT rates: hardcode IDs 3/5/omit — do NOT call GET /vat/type (fixed PR #15)
-- `POST /travelExpense/cost` is BETA (fixed PR #17)
-- `POST /ledger/voucher` system-generated accounts (1500, 3400) → 422 unfixable
-- `POST /product` must include `number` field as string for product number (fixed PR #24)
+- System-generated account postings → unfixable in this validator environment
 
 ---
 
@@ -101,19 +113,25 @@ Bank account fix confirmed working (PR #22 deployed). Latest batch of 4 submissi
 - `GET /customer`, `GET /employee`, `GET /project`, `GET /department`, `GET /activity`
 - `POST /customer`, `POST /employee`, `POST /department`, `POST /project`, `POST /order`, `POST /product`
 - `POST /supplier` (confirmed ✅ — 6/6 score on supplier creation task)
+- `POST /activity` (confirmed ✅ — PR #25)
 - `POST /timesheet/entry` (confirmed ✅ — 6/6, 8/8 on timesheet+project invoice tasks)
 - `POST /travelExpense`, `PUT /travelExpense/{id}`, `DELETE /travelExpense/{id}`
 - `PUT /order/{id}/:invoice`, `PUT /invoice/{id}/:payment`, `PUT /invoice/{id}/:createCreditNote`
 - `GET /invoice` (requires `invoiceDateFrom`/`invoiceDateTo`; NO dot notation in fields param)
 - `GET /ledger/account`, `PUT /ledger/account/{id}`
+- `GET /ledger/posting` (parentheses syntax: `account(id,number,name)`)
 - `GET /supplier`
 - `POST /ledger/voucher` (body uses `"postings"` array; only date/description/postings allowed)
+- `PUT /ledger/voucher/{id}/:reverse` (PR #26 — bank return reversal)
+- `POST /employee/employment` (PR #27 — not yet confirmed in live logs)
+- `POST /employee/employment/details` (PR #27 — not yet confirmed in live logs)
+- `GET /employee/employment/occupationCode` (PR #27 — not yet confirmed in live logs)
 
 ### Verified NOT working
 - `GET /vat/type` → 404
 - `POST /supplier/invoice` → 405
 - `POST /invoice/fromTimesheet` → 405
-- `POST /invoice/payment` → 405 (use PUT /invoice/{id}/:payment instead)
+- `POST /invoice/payment` → 405 (use `PUT /invoice/{id}/:payment` instead)
 - `POST /timesheet` (no `/entry`) → 404
 - `POST /timeSheet` (capital S) → 404
 - `PUT /invoice/{id}/:reversePayment` → 404
@@ -135,19 +153,18 @@ Bank account fix confirmed working (PR #22 deployed). Latest batch of 4 submissi
 
 ## 5. What to do next
 
-### Immediate (top priority)
-1. **Merge PR #24** — fixes product number, fields dot notation, voucher invalid fields, repair prompt reminders
-2. **Redeploy** from `~/nm-ai-2026-1` after merge
-3. **Submit repeatedly** — confirm task #34 (product) now scores 7/7
+### Confirm pending fixes
+1. **Bank return (PR #26)** — not yet confirmed in validator logs. Submit a "bankretur"/"bank return" task.
+2. **Employee sub-resources (PR #27)** — not yet confirmed. Submit an employee from PDF task.
 
-### Known fixes pending (once confirmed by logs)
-4. **Employment sub-resource** — if "set start date" tasks return: POST /employee/employment with `{employeeId, startDate}` — unverified; confirm from spec first
-5. **GET /project with customer filter** — for project lookup: `GET /project?name=X&customer.id=Y`
-6. **Purregebyr pattern** — if more reminder fee tasks appear: order+invoice ✅ but voucher for the fee → 422 (system-generated postings). Need to find alternative approach.
+### Unfixable (stop trying)
+- Month-end closing (#35x): all accounts → system-generated. Max 2/10.
+- Bank statement reconciliation (#41): INT32_MAX + system-generated. 0/10.
+- Supplier invoice via voucher (#37): accounts 2400/2710 → system-generated. Max 2/10.
+- Ledger error correction (#24): 403 on first call. Unfixable.
 
-### Strategy for remaining time
-- Keep submitting to discover remaining unseen task types
-- Focus on Tier 1 tasks that fail — they're simplest to fix and score reliably
+### Discover remaining 2 task types
+- Submit repeatedly — 28/30 seen, 2 unknown
 
 ---
 
