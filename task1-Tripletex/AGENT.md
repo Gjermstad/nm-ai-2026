@@ -1,7 +1,7 @@
 # AGENT.md — Task 1: Tripletex AI Accounting Agent
 > NM i AI 2026 — Solo competitor, frontend student (Kristiania, 6th semester)
-> Last updated: 2026-03-21 ~17:00 CET
-> Status: PR #18 merged. Deployment is STALE — must `git pull && deploy` from `~/nm-ai-2026-1`.
+> Last updated: 2026-03-21 ~21:00 CET
+> Status: PR #22 deployed (bank account fix confirmed ✅). PR #24 in progress — product number, fields dot notation, voucher invalid fields.
 
 ---
 
