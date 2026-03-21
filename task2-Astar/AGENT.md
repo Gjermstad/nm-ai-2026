@@ -2,7 +2,7 @@
 
 > NM i AI 2026 — Task 2 handoff/control file
 > Last updated: 2026-03-21 (Saturday, Oslo)
-> Status: Round 17 optimization run completed with `48/50` queries and refreshed `5/5` hosted submissions (~20:38 Oslo). Aggressive-profile floor validation drift was mitigated live by switching back to safe profile before rebuild+submit; local numeric floor-tolerance patch is prepared and tested.
+> Status: Round 17 optimization run completed with `48/50` queries and refreshed `5/5` hosted submissions (~20:38 Oslo). Aggressive-profile floor validation drift was mitigated live by switching back to safe profile before rebuild+submit; local floor-tolerance and screenshot-driven calibration patches are prepared and tested (not yet redeployed).
 
 ---
 
@@ -35,7 +35,7 @@ Implemented components:
 - Backend service: `main.py`, `backend.py`, `core.py`
 - UI: `static/index.html`, `static/app.js`, `static/styles.css`
 - Docs: `SPEC.md`, `README.md`, `PROGRESS.md`
-- Tests: `tests/test_core.py` (7 passing)
+ - Tests: `tests/test_core.py` (9 passing)
 
 Implemented internal endpoints:
 - `GET /health`, `GET /status`, `GET /seed/{seed_index}`
@@ -174,6 +174,23 @@ curl -sS "$BASE/status"
   - rebuilt drafts and confirmed `floor_ok_all=true`, `submit_ready_all=true`
   - executed `submit/all` successfully (`failed=[]`)
   - final hosted state: `run_enabled=false`, `queries.used/max=48/50`, `submitted_count=5`, `last_error=null`
+
+### Round 16 screenshot calibration (prepared locally, 2026-03-21 late session)
+
+- Inputs reviewed:
+  - full layer-analysis captures for all 5 seeds from Round 16
+- Observed bias:
+  - consistent `Empty` underprediction
+  - diffuse overprediction of `Settlement`/`Port`/`Ruin`
+- Calibration patch applied in `core.py`:
+  - reduced dynamic-heavy priors (especially non-dynamic/forest starting cells)
+  - reduced near-settlement and aggressive dynamic boosts
+  - increased posterior smoothing (`alpha`) to reduce noisy class spread
+- Regression tests extended in `tests/test_core.py`:
+  - guard unknown-terrain empty dominance
+  - bound aggressive near-settlement dynamic mass
+- Deployment note:
+  - patch is committed/pushed for review but intentionally not redeployed automatically during active round.
 
 ---
 
