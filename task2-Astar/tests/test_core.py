@@ -24,7 +24,7 @@ def test_normalize_with_floor():
     dist = normalize_with_floor([1.0, 0.0, 0.0, 0.0, 0.0, 0.0], floor=0.01)
     assert len(dist) == 6
     assert abs(sum(dist) - 1.0) < 1e-9
-    assert min(dist) >= 0.01 / (1.0 + 5 * 0.01)
+    assert min(dist) >= 0.01
 
 
 def test_cell_distribution_no_zeros():

@@ -50,3 +50,45 @@
 
 - `https://github.com/Gjermstad/nm-ai-2026`
 - Always `git pull` before deploying
+
+---
+
+## 3. ORGANIZER DOCS VIA MCP (WRITE THIS DOWN)
+
+Use this to fetch latest competition docs and compare against local `.md` files.
+
+### MCP server endpoint
+
+- `https://mcp-docs.ainm.no/mcp`
+- Local config file: `.mcp.json`
+
+### Quick connectivity checks
+
+```bash
+claude mcp list
+curl -sS -I https://mcp-docs.ainm.no/mcp
+```
+
+### Get available docs (through MCP tools)
+
+```bash
+claude -p "Use the nmiai MCP server. Run list_docs and print full output." --output-format text --dangerously-skip-permissions
+```
+
+### Get one specific doc resource (recommended pattern)
+
+Use MCP `resources/read` and not only keyword search.  
+If the server returns intermittent `Session not found`, retry with a fresh `initialize` per resource.
+
+Target Astar resources:
+- `challenge://astar-island/overview`
+- `challenge://astar-island/mechanics`
+- `challenge://astar-island/endpoint`
+- `challenge://astar-island/scoring`
+- `challenge://astar-island/quickstart`
+
+### Sync policy
+
+- Treat organizer docs as canonical.
+- Keep useful local operator notes if upstream removed them.
+- Remove obvious upstream artifacts/noise before saving local copies.

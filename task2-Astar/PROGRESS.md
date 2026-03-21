@@ -1,6 +1,55 @@
 # Progress Report: Astar Island Operator (Task 2)
 
-## 0. Latest Session Update (2026-03-21, Saturday ~17:19 Oslo)
+## 0. Latest Session Update (2026-03-21, Saturday ~18:05 Oslo)
+
+- Synced local organizer docs in `task2-Astar/task2_docs_*.md` against live MCP resources:
+  - `challenge://astar-island/overview`
+  - `challenge://astar-island/mechanics`
+  - `challenge://astar-island/endpoint`
+  - `challenge://astar-island/scoring`
+  - `challenge://astar-island/quickstart`
+- Applied merge + sanitize policy:
+  - adopted upstream content for all 5 docs
+  - preserved local operator note in overview (round replay/history after round close)
+  - removed upstream artifact text `Stashed changes` from scoring
+- Added future reliability rule in `AGENT.md` for doc sync:
+  - use retries + fresh MCP `initialize` per resource because endpoint occasionally returns `Session not found`.
+
+- Completed full authenticated local live smoke on active Round 16 (`id=8f664aed-8839-4c85-bed0-77a2cac7c6f5`):
+  - token set via `/auth/token`
+  - run mode started and query progression confirmed (`0 -> 7`, coverage increased per seed)
+  - draft rebuild succeeded
+  - per-seed readiness confirmed (`submit_ready=true` for all seeds after fix)
+  - `submit one` succeeded (`seed 0`)
+  - `submit all` succeeded with no failures (`5/5` accepted)
+- Production blocker found and fixed:
+  - issue: after live queries, multiple cells fell below floor `0.01`, causing validation failure and blocked submit for 4 seeds.
+  - root cause: `normalize_with_floor()` floored values before renormalization, then renormalization pushed some values below floor.
+  - fix: replaced normalization with strict floor-preserving redistribution in `task2-Astar/core.py`.
+  - test hardening: `test_normalize_with_floor` now enforces `min(prob) >= 0.01`.
+- Additional reliability fix in `task2-Astar/backend.py`:
+  - successful submit now clears stale `"Submit failed ..."` `last_error` state.
+- Regression checks after fixes:
+  - `py_compile` passed for `core.py`, `backend.py`, `main.py`
+  - `pytest task2-Astar/tests/test_core.py` => `6 passed`
+
+### 0.1 Previous Session Snapshot (2026-03-21, Saturday ~17:50 Oslo)
+
+- Re-ran the requested local live smoke workflow against a real active round:
+  - app started, active round detected (`round_number=16`)
+  - run mode toggled and monitored
+  - draft rebuild completed
+  - per-seed validation readiness confirmed green (`5/5`)
+  - `submit one` and `submit all` flows executed
+- Primary blocker found: no `ASTAR_ACCESS_TOKEN` available in the local runtime, so query progression stayed at `0/50` and submit calls returned `401`.
+- Reliability patch applied in `task2-Astar/backend.py`:
+  - missing-token recovery action now points to env or `/auth/token` (no misleading “restart” text)
+  - setting token at runtime now clears stale `Missing ASTAR_ACCESS_TOKEN` error state.
+- Regression checks passed after patch:
+  - `py_compile` passed for `core.py`, `backend.py`, `main.py`
+  - `pytest task2-Astar/tests/test_core.py` => `6 passed`
+
+### 0.2 Previous Session Snapshot (2026-03-21, Saturday ~17:19 Oslo)
 
 - PR #19 is merged to `main`, and the feature branch was deleted after merge.
 - The implemented Task 2 stack is now the baseline in repository `main`.
@@ -287,22 +336,37 @@ task1-Tripletex/.venv/bin/python -m pytest -q task2-Astar/tests/test_core.py
 # Result: 6 passed
 ```
 
+Live smoke (local app, 2026-03-21 ~17:45-17:50 Oslo):
+- `GET /health` and `GET /status`: active round loaded correctly.
+- `POST /run/start` + wait: run enabled, but no token => `last_error=Missing ASTAR_ACCESS_TOKEN`; queries remained unchanged.
+- `POST /draft/rebuild`: succeeded.
+- Readiness check: all seeds `submit_ready=true`.
+- `POST /submit/seed` and `POST /submit/all`: expected auth failures (`401`) without token.
+- Targeted patch validation: setting runtime token clears stale missing-token error.
+
+Live smoke + submit (local app, authenticated, 2026-03-21 ~18:00 Oslo):
+- Query progression confirmed while run-mode enabled (`queries used 0 -> 7`).
+- Pre-fix submit blocker reproduced: `floor_ok=false` after live observations caused submit rejection.
+- Post-fix behavior confirmed:
+  - all seeds `submit_ready=true` and `floor_ok=true`
+  - `POST /submit/seed` accepted
+  - `POST /submit/all` accepted with `failed=[]`
+  - final submit state `submitted_count=5/5`.
+
 Not yet performed (important):
-- full end-to-end live API smoke test with real token and active round
-- real submit acceptance test against active round
 - Cloud Run deployment smoke test for this task2 service
 
 ---
 
 ## 8. Known Gaps / Risks Remaining
 
-### 8.1 Not yet live-validated against current round
+### 8.1 Cloud Run still not live-validated
 
 Consequence:
-- integration details (auth, payload edge cases, timing) might still need small fixes.
+- local flow is proven, but hosted deployment can still have env/auth/runtime differences.
 
 Mitigation:
-- run immediate live smoke checklist at start of next active window.
+- deploy/update Cloud Run service and run the same smoke checklist immediately.
 
 ### 8.2 Planner is heuristic, not model-calibrated
 
@@ -340,14 +404,10 @@ Mitigation:
 
 ## 9. Immediate Next Actions (Priority Order)
 
-1. Run live smoke test with real `ASTAR_ACCESS_TOKEN`:
-   - confirm active round load
-   - confirm background queries increment budget
-   - confirm draft validations are green
-2. Submit one seed manually and verify accepted response.
-3. Submit all seeds and verify completion state.
-4. Deploy to Cloud Run and repeat smoke test against hosted URL.
-5. Tune safe/aggressive planner weights based on first observed outcomes.
+1. Deploy/update Cloud Run and execute the same authenticated smoke checklist there.
+2. Verify hosted dashboard shows accurate `submitted_count`, budget, and deadline risk.
+3. Add small integration tests around `normalize_with_floor()` and `submit` readiness transitions.
+4. Tune safe/aggressive planner weights based on completed-round analysis outputs.
 
 ---
 
