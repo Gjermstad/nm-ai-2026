@@ -70,6 +70,11 @@ Run this exact order:
 Screenshot source for post-round analysis:
 - `task2-Astar/screenshots/` (expected naming: `Round1X_overview.png`, `Round1X_SeedY_a.png`, `Round1X_SeedY_b.png`)
 
+API source for historical analysis (when authenticated token is available):
+- `GET /astar-island/my-rounds`
+- `GET /astar-island/analysis/{round_id}/{seed_index}` for seeds `0..4`
+- Store derived aggregates in `task2-Astar/PastRounds.md` (Section 11).
+
 ---
 
 ## 4. Operational Commands
@@ -236,6 +241,7 @@ curl -sS "$BASE/status"
 10. Do not block the session by waiting in long hold loops (for example, waiting at `48/50` until T-30m). Arm run mode and return control to operator.
 11. If operator says to wait before submitting, do not execute submit endpoints until explicit go-ahead.
 12. Ingest all newly added round screenshots from `task2-Astar/screenshots/` into `task2-Astar/PastRounds.md` before making new model-tuning choices.
+13. Refresh the API-derived archive in `task2-Astar/PastRounds.md` after completed rounds when authenticated access is available, including non-submitted rounds.
 
 ---
 

@@ -252,3 +252,123 @@ Read in this order when optimizing predictions:
 4. `task2-Astar/SPEC.md`
 
 Then inspect current `/status` and use this file's `Section 7` priorities to choose the next low-risk calibration pass.
+
+## 11. API-Derived Historical Archive (Rounds 1-18)
+
+### 11.1 Source and Timestamp
+- `OBSERVED`: Data source is authenticated Task 2 API calls:
+  - `GET /astar-island/my-rounds`
+  - `GET /astar-island/analysis/{round_id}/{seed_index}` for seeds `0..4`
+- `OBSERVED`: Snapshot fetched at `2026-03-21T23:19:53.519327+00:00` (UTC), which is `2026-03-22 00:19:53` in Oslo time.
+- `OBSERVED`: At snapshot time, Round 18 was still active (`49/50` queries, `5/5` submitted).
+
+### 11.2 Full Round Ledger (Team-Specific)
+
+| Round | Status | Weight | Score | Seeds Submitted | Queries Used | `analysis` seeds OK | `prediction` present seeds |
+|---:|---|---:|---:|---:|---:|---:|---:|
+| 1 | completed | 1.0500 | - | 0 | 0/50 | 5 | 0 |
+| 2 | completed | 1.1025 | - | 0 | 0/50 | 5 | 0 |
+| 3 | completed | 1.1576 | - | 0 | 0/50 | 5 | 0 |
+| 4 | completed | 1.2155 | - | 0 | 0/50 | 5 | 0 |
+| 5 | completed | 1.2763 | - | 0 | 0/50 | 5 | 0 |
+| 6 | completed | 1.3401 | - | 0 | 0/50 | 5 | 0 |
+| 7 | completed | 1.4071 | - | 0 | 0/50 | 5 | 0 |
+| 8 | completed | 1.4775 | - | 0 | 0/50 | 5 | 0 |
+| 9 | completed | 1.5513 | - | 0 | 0/50 | 5 | 0 |
+| 10 | completed | 1.6289 | - | 0 | 0/50 | 5 | 0 |
+| 11 | completed | 1.7103 | - | 0 | 0/50 | 5 | 0 |
+| 12 | completed | 1.7959 | - | 0 | 0/50 | 5 | 0 |
+| 13 | completed | 1.8856 | - | 0 | 0/50 | 5 | 0 |
+| 14 | completed | 1.9799 | - | 0 | 0/50 | 5 | 0 |
+| 15 | completed | 2.0789 | - | 0 | 0/50 | 5 | 0 |
+| 16 | completed | 2.1829 | 45.6109 | 5 | 50/50 | 5 | 5 |
+| 17 | completed | 2.2920 | 51.6942 | 5 | 50/50 | 5 | 5 |
+| 18 | active | 2.4066 | - | 5 | 49/50 | - | - |
+
+Interpretation:
+- `OBSERVED`: Rounds 1-15 have no team submissions, but full ground truth is still available through `analysis`.
+- `INFERRED`: This gives a large training/calibration dataset even without historical predictions from our team.
+
+### 11.3 Ground-Truth Dynamics by Round (Completed Rounds 1-17)
+
+Class order used below:
+- `[Empty, Settlement, Port, Ruin, Forest, Mountain]`
+
+`dynamic_mass` = `Settlement + Port + Ruin` (classes 1+2+3)
+
+| Round | Avg Entropy | Class Mean | Dynamic Mass |
+|---:|---:|---|---:|
+| 1 | 0.5538 | [0.6304, 0.1397, 0.0121, 0.0109, 0.1856, 0.0214] | 0.1626 |
+| 2 | 0.6919 | [0.6166, 0.1686, 0.0125, 0.0164, 0.1686, 0.0173] | 0.1975 |
+| 3 | 0.0681 | [0.7586, 0.0023, 0.0001, 0.0005, 0.2195, 0.0190] | 0.0029 |
+| 4 | 0.4654 | [0.6778, 0.0805, 0.0056, 0.0081, 0.2058, 0.0222] | 0.0942 |
+| 5 | 0.4818 | [0.6559, 0.1112, 0.0077, 0.0116, 0.1928, 0.0209] | 0.1304 |
+| 6 | 0.8082 | [0.5573, 0.2158, 0.0146, 0.0280, 0.1627, 0.0217] | 0.2583 |
+| 7 | 0.3917 | [0.6571, 0.1322, 0.0086, 0.0097, 0.1748, 0.0177] | 0.1504 |
+| 8 | 0.2697 | [0.7361, 0.0222, 0.0009, 0.0037, 0.2197, 0.0174] | 0.0268 |
+| 9 | 0.6114 | [0.6447, 0.1204, 0.0075, 0.0144, 0.1949, 0.0181] | 0.1422 |
+| 10 | 0.1120 | [0.7509, 0.0091, 0.0003, 0.0012, 0.2207, 0.0177] | 0.0107 |
+| 11 | 0.6822 | [0.5599, 0.2368, 0.0134, 0.0155, 0.1525, 0.0217] | 0.2658 |
+| 12 | 0.2687 | [0.6528, 0.1270, 0.0081, 0.0050, 0.1866, 0.0206] | 0.1400 |
+| 13 | 0.5082 | [0.6743, 0.0866, 0.0049, 0.0112, 0.2042, 0.0189] | 0.1026 |
+| 14 | 0.6770 | [0.5625, 0.2266, 0.0122, 0.0222, 0.1621, 0.0145] | 0.2609 |
+| 15 | 0.6662 | [0.6103, 0.1560, 0.0083, 0.0166, 0.1892, 0.0196] | 0.1808 |
+| 16 | 0.3210 | [0.6970, 0.0718, 0.0040, 0.0055, 0.2061, 0.0156] | 0.0813 |
+| 17 | 0.7757 | [0.5487, 0.2348, 0.0156, 0.0184, 0.1607, 0.0217] | 0.2688 |
+
+Interpretation:
+- `OBSERVED`: Round volatility differs significantly by round (entropy range `0.0681` to `0.8082`).
+- `INFERRED`: A single static dynamic-prior setting is suboptimal across all rounds.
+- `DECISION`: keep a conservative baseline prior, then adapt dynamic lift mainly from observed evidence rather than globally high default tails.
+
+### 11.4 Global Ground-Truth Priors Across Completed Rounds (1-17)
+
+- `OBSERVED`: Global mean class distribution over all completed-round cells:
+  - `Empty=0.6465`
+  - `Settlement=0.1260`
+  - `Port=0.0080`
+  - `Ruin=0.0117`
+  - `Forest=0.1886`
+  - `Mountain=0.0192`
+- `OBSERVED`: Global mean entropy across completed rounds: `0.4914`
+
+`INFERRED`:
+- Port/Ruin are truly low-mass classes globally.
+- Mountain is effectively deterministic only on mountain-initial cells; non-zero mountain elsewhere is mostly floor-related hedge.
+
+### 11.5 Ground-Truth by Initial Terrain Code (Completed Rounds 1-17)
+
+| Initial Code | Cells | Avg Entropy | Mean Distribution [E,S,P,R,F,M] |
+|---:|---:|---:|---|
+| 1 (Settlement) | 3784 | 1.0515 | [0.4345, 0.3258, 0.0041, 0.0263, 0.2093, 0.0000] |
+| 2 (Port) | 146 | 1.1967 | [0.4693, 0.0965, 0.1832, 0.0221, 0.2288, 0.0000] |
+| 4 (Forest) | 29017 | 0.6277 | [0.0769, 0.1465, 0.0092, 0.0137, 0.7537, 0.0000] |
+| 5 (Mountain) | 2610 | 0.0000 | [0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 1.0000] |
+| 10 (Ocean) | 17669 | 0.0000 | [1.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000] |
+| 11 (Plains) | 82774 | 0.5371 | [0.8012, 0.1405, 0.0094, 0.0132, 0.0357, 0.0000] |
+
+Interpretation:
+- `OBSERVED`: On plains (`11`), GT average Port+Ruin is `~2.26%` combined (`0.0094+0.0132`).
+- `INFERRED`: Any large default Port/Ruin tails on plains are likely overestimation.
+- `OBSERVED`: On forest (`4`), GT still has meaningful settlement mass (`0.1465`) while forest remains dominant (`0.7537`).
+- `DECISION`: forest priors should allow settlement possibility, but avoid high ruin/port leakage.
+
+### 11.6 Submitted-Round Bias Diagnostics (API, Not Screenshot)
+
+For submitted rounds, we computed `prediction_mean - ground_truth_mean` (class-level absolute mass delta):
+
+Round 16:
+- `OBSERVED`: diff = `[-0.1221, +0.0406, +0.0504, +0.0592, -0.0542, +0.0262]`
+- `INFERRED`: strong Empty/Forest underprediction, strong Port/Ruin overprediction.
+
+Round 17:
+- `OBSERVED`: diff = `[-0.0016, -0.0971, +0.0422, +0.0502, -0.0192, +0.0255]`
+- `INFERRED`: Empty mismatch largely fixed; Settlement now underpredicted while Port/Ruin/Mountain remain overpredicted.
+
+### 11.7 Additional Decisions Enabled by API Archive
+
+1. `DECISION`: add a low-cap regularizer on global Port and Ruin mass in unobserved/low-visit cells.
+2. `DECISION`: reduce mountain tail outside mountain-initial cells (keep only floor-level hedge unless evidence supports otherwise).
+3. `DECISION`: increase settlement recovery in repeatedly observed dynamic clusters instead of increasing global dynamic priors.
+4. `DECISION`: when available, use early-round observed entropy signals to decide whether to keep conservative vs moderately dynamic behavior.
+5. `DECISION`: keep this API archive section updated after every completed round (including rounds with no submission).
