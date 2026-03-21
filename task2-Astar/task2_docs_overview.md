@@ -2,13 +2,13 @@
 
 Observe a Norse island simulator. Predict the world state. Outscore everyone.
 
-Observe
+**Observe** - 
 Query the simulator through a 15x15 viewport. 50 queries per round.
 
-Predict
+**Predict** - 
 Submit probability distributions for each cell across all map seeds.
 
-Score
+**Score** - 
 Scored by KL divergence against the ground truth. 0-100 scale.
 
 ## What is this?
