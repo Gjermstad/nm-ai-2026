@@ -475,10 +475,15 @@ GET /activity:
 
 POST /activity  (create a new work activity — use when task asks to create an activity):
   REQUIRED: name, activityType
-  activityType MUST be one of these string values (NOT an object/id): "GENERAL_PROJECT_ACTIVITY", "TASK", "INTERNAL_ACTIVITY"
-  Use "GENERAL_PROJECT_ACTIVITY" unless the task specifies otherwise.
+  activityType MUST be one of these exact string values (NOT an object/id — plain string only):
+    "GENERAL_ACTIVITY"          — a general activity not tied to a specific project
+    "PROJECT_GENERAL_ACTIVITY"  — a general activity within a project context (use this when creating activities for a project)
+    "PROJECT_SPECIFIC_ACTIVITY" — an activity specific to one project
+    "TASK"                      — a task-type activity
+  Use "PROJECT_GENERAL_ACTIVITY" when creating an activity linked to a project.
+  Use "GENERAL_ACTIVITY" for standalone general activities.
   Optional: description
-  Example: {{"name": "Design", "description": "Design work", "activityType": "GENERAL_PROJECT_ACTIVITY"}}
+  Example: {{"name": "Design", "description": "Design work", "activityType": "PROJECT_GENERAL_ACTIVITY"}}
 
 POST /timesheet/entry  (log worked hours — NOT /timesheet or /timeSheet):
   REQUIRED: employee ({{"id": ID}}), project ({{"id": ID}}), activity ({{"id": ID}}), date ("YYYY-MM-DD"), hours (number)
