@@ -1,8 +1,13 @@
 # Progress Report: Tripletex AI Accounting Agent
 
-## 1. Current state (2026-03-21 ~23:00 CET)
+## 1. Current state (2026-03-22 ~00:00 CET)
 
-All PRs up to #27 merged and deployed. Score: **23.3 Task 1 points, rank #218** (as of ~22:00 CET). 28/30 task types seen. 2 remaining task types undiscovered.
+All PRs up to #33 merged and deployed. Score: unknown (latest logs show auth errors). 29/30 task types seen. 1 remaining task type undiscovered.
+
+**Known open bugs (pre-this-PR):**
+- `employee` field on orderLines → 422 "Feltet eksisterer ikke i objektet" (fixed this PR)
+- `customer` field on timesheet/entry repair pass → 422 (fixed this PR)
+- Auth errors (0/10, 0/7): Cloud Run rejecting with "The request was not authenticated" — possible SOLVE_API_KEY issue or IAM misconfiguration after recent deploys
 
 **Deployed URL:** `https://tripletex-agent-997219197351.europe-north1.run.app`
 
@@ -85,6 +90,7 @@ All PRs up to #27 merged and deployed. Score: **23.3 Task 1 points, rank #218** 
 | 36 | Analyze ledger Jan vs Feb, find top 3 expense accounts, create projects + activities (Spanish) | ❌ 0/10 | 3 | GET /ledger/posting with dot notation → 400. POST /activity not in prompt. Fixed PR #25: parentheses syntax, add POST /activity. |
 | 37 | Supplier invoice from PDF, Rio Azul Lda, IT-konsulenttjenester, INV-2026-6669 (Portuguese) | ⚠️ 2/10 | 2 | POST /ledger/voucher to accounts 2400/2710/6300 → 422 system-generated. Unfixable. |
 | 38 | Complete project lifecycle: create project, log time x2, register supplier cost, create invoice (English) | ⚠️ 2/11 | 3 | Gemini hallucinated `tool_code` format instead of REST API calls → all skipped. Fixed PR #27: reinforce output format, ban tool_code. |
+| 42 | Timesheet 11h "Design" on "Integración de plataforma" for Ana Romero / Costa Brava SL, project invoice (Spanish) | ⚠️ 4/8 | 2 | `employee` field in orderLines → 422. Repair pass added `customer` to timesheet/entry → 422. Fixed this PR: remove employee from orderLines, add NOTE customer invalid on timesheet. |
 | 39 | Create and send invoice to Lumière SARL, 34100 NOK, Stockage cloud (French) | ✅ 7/7 | 2 | Bank account ✅, sendToCustomer=true ✅ |
 | 40 | Create employee from PDF employment contract — Maximilian Fischer, Kvalitetskontroll dept (German) | ❌ 0/22 | 3 | Gemini used ternary expression for department.id → unresolved placeholder → employee skipped. Fixed PR #27: ban ternary, add employeeNumber + employment sub-resources. |
 | 41 | Bank statement reconciliation CSV — match payments to customer/supplier invoices (German) | ❌ 0/10 | 3 | Customer payment → 404 (INT32_MAX). Supplier payment voucher → 422 system-generated. Repair POST /supplierPayment → 404. Unfixable. |
@@ -156,6 +162,15 @@ All PRs up to #27 merged and deployed. Score: **23.3 Task 1 points, rank #218** 
 ### Confirm pending fixes
 1. **Bank return (PR #26)** — not yet confirmed in validator logs. Submit a "bankretur"/"bank return" task.
 2. **Employee sub-resources (PR #27)** — not yet confirmed. Submit an employee from PDF task.
+3. **Auth errors** — two recent submits returned "The request was not authenticated" (Cloud Run rejects). Check SOLVE_API_KEY env var and Cloud Run IAM settings before next submit.
+
+### Invalid order line fields (cause 422 "Feltet eksisterer ikke i objektet")
+- `employee` — does NOT exist on orderLine. Remove entirely.
+- Valid fields: `description`, `count`, `unitPriceExcludingVatCurrency`, `vatType`, `project`
+
+### Invalid timesheet/entry fields (cause 422)
+- `customer` — does NOT exist on timesheet/entry.
+- Valid optional fields: `hourlyRate`, `comment`
 
 ### Unfixable (stop trying)
 - Month-end closing (#35x): all accounts → system-generated. Max 2/10.
