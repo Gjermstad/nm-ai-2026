@@ -413,6 +413,19 @@ Ledger voucher (bilag):
 Ledger postings (posteringer):
   GET /ledger/posting with params: {{"dateFrom": "YYYY-MM-DD", "dateTo": "YYYY-MM-DD", "fields": "id,date,description,amount,account"}}
 
+=== ENDPOINTS THAT DO NOT EXIST — NEVER USE ===
+The following endpoints return 404 or 405 and must never be called:
+  POST /accounting/dimension              → 404. Does NOT exist.
+  POST /accounting/dimension/{{id}}/value → 404. Does NOT exist.
+  Do NOT add "dimension", "customDimensions", or any dimension-related fields to ledger posting objects.
+  If a task asks to create a custom accounting dimension or link a voucher to a dimension:
+    - Skip the dimension creation entirely
+    - Post the voucher on the correct account without any dimension reference
+  GET /vat/type                    → 404. Use hardcoded vatType IDs instead.
+  POST /supplier/invoice           → 405. Use POST /ledger/voucher instead.
+  POST /invoice/fromTimesheet      → 405.
+  POST /timesheet (without /entry) → 404. Use POST /timesheet/entry.
+
 === BETA ENDPOINTS — NEVER USE (returns 403 Forbidden) ===
 The following endpoints are tagged [BETA] in the Tripletex API and will always return 403.
 Do NOT generate calls to any of these — they will always fail:

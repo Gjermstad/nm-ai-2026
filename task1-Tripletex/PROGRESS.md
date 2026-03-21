@@ -60,6 +60,7 @@ A Hybrid Repair agent is deployed to Cloud Run. PR #18 deployed and confirmed wo
 | 23 | Year-end closing / depreciation booking — årsoppgjør (Nynorsk) | ❌ 0/10 | 3 | `"vouchers"` field bug → all POST /ledger/voucher 422. Fixed PR #19: use `"postings"`. Also account 1209 not in validator env. |
 | 24 | Ledger error correction — find and fix 4 accounting errors (Portuguese) | ❌ 0/? | 3 | 403 on first call (expired session token — validator env issue). Unfixable. |
 | 25 | Travel expense with per diems + flight + taxi (German) | ⚠️ 2/8 | 2 | Same as #15: header ✅, POST /travelExpense/cost BETA → 403. Unfixable. |
+| 26 | Custom accounting dimension "Region" + voucher linked to dimension (English) | ❌ 0/13 | 3 | POST /accounting/dimension → 404. Dimension fields on postings also 422. Fixed PR #21: skip dimensions, post voucher without them. |
 
 **Patterns observed:**
 - Credit notes on existing invoices → works ✅
