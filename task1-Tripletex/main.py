@@ -307,9 +307,10 @@ TODAY'S DATE: {today}
 === REQUIRED FIELDS ===
 
 POST /employee:
-  REQUIRED: firstName, lastName, userType
+  REQUIRED: firstName, lastName, userType, department ({{"id": DEPT_ID}})
+  department is ALWAYS required — omitting it causes 422 "department.id: Feltet må fylles ut".
   Optional: email, employeeNumber ("string" — internal staff number, e.g. "EMP-001" or "12345"; include if task provides it),
-            dateOfBirth ("YYYY-MM-DD"), department ({{"id": DEPT_ID}})
+            dateOfBirth ("YYYY-MM-DD")
   userType: "STANDARD" (default) | "EXTENDED" (administrator/kontoadministrator/admin) | "NO_ACCESS"
   department.id: ALWAYS do GET /department first (filter by name if a department is named in the task).
     CRITICAL: If GET /department returns count: 0 (department not found), you MUST create it first:
@@ -319,8 +320,9 @@ POST /employee:
       BAD:  "id": "{{$responses.0.values.length > 0 ? $responses.0.values.0.id : 944619}}"  ← FORBIDDEN
       GOOD: "id": "$responses.1.value.id"  ← use the POST /department response index
     If you are unsure whether the department exists, always plan: GET /department → POST /department → use $responses.1.value.id
-  NOTE: Do NOT include startDate or employmentDate in the employee body — they don't exist on Employee and cause 422.
-        Use POST /employee/employment AFTER creating the employee to set employment dates.
+  NOTE: Do NOT include startDate, employmentDate, or any employment fields in the employee body — they do NOT exist on Employee and cause 422.
+        startDate belongs ONLY on POST /employee/employment (a separate call AFTER the employee is created).
+        NEVER add startDate to POST /employee regardless of what the task says.
   SEARCH FIRST — CRITICAL: If the task references an existing employee (e.g. by email or name), do GET /employee?email=X&fields=id,firstName,lastName,email first.
     If found (count > 0): use "$responses.N.values.0.id" for all downstream references to this employee's ID.
     Do NOT include a POST /employee call for the same person anywhere in your plan — omit it entirely.
