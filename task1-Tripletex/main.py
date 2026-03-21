@@ -199,8 +199,9 @@ def extract_file_context(files: List[FileInfo]) -> str:
 # --- API call executor ---
 
 def execute_calls(calls: list, responses: list, base_url: str, session_token: str, deadline: float):
-    """Execute API calls, appending to responses. Returns list of 422 error dicts."""
+    """Execute API calls, appending to responses. Returns (errors_422, skipped_calls)."""
     errors_422 = []
+    skipped_calls = []
     for i, call in enumerate(calls):
         if time.time() > deadline - 5:
             logger.warning("Deadline approaching, stopping at call %d", i)
@@ -247,6 +248,7 @@ def execute_calls(calls: list, responses: list, base_url: str, session_token: st
         if "$responses." in combined_str:
             logger.warning("CALL %d: skipping — unresolved placeholder in call (dependency returned no results): %s",
                            i, combined_str[:300])
+            skipped_calls.append(call)
             responses.append({"error": "unresolved placeholder — dependency call returned no results"})
             continue
 
@@ -290,7 +292,7 @@ def execute_calls(calls: list, responses: list, base_url: str, session_token: st
             logger.error("CALL %d exception: %s", i, e)
             responses.append({"error": str(e)})
 
-    return errors_422
+    return errors_422, skipped_calls
 
 
 # --- Prompt builders ---
@@ -309,9 +311,11 @@ TODAY'S DATE: {today}
 POST /employee:
   REQUIRED: firstName, lastName, userType, department ({{"id": DEPT_ID}})
   department is ALWAYS required — omitting it causes 422 "department.id: Feltet må fylles ut".
-  Optional: email, employeeNumber ("string" — internal staff number, e.g. "EMP-001" or "12345"; include if task provides it),
+  email: REQUIRED when userType is "STANDARD" (Tripletex-user requires email — causes 422 "email: Må angis for Tripletex-brukere" if omitted).
+         Include email if provided in the task; if not provided, omit userType or set userType to "NO_ACCESS".
+  Optional: employeeNumber ("string" — internal staff number, e.g. "EMP-001" or "12345"; include if task provides it),
             dateOfBirth ("YYYY-MM-DD")
-  userType: "STANDARD" (default) | "EXTENDED" (administrator/kontoadministrator/admin) | "NO_ACCESS"
+  userType: "STANDARD" (default, requires email) | "EXTENDED" (administrator/kontoadministrator/admin) | "NO_ACCESS"
   department.id: ALWAYS do GET /department first (filter by name if a department is named in the task).
     CRITICAL: If GET /department returns count: 0 (department not found), you MUST create it first:
       POST /department body: {{"name": "<department name from task>"}}
@@ -667,7 +671,7 @@ CRITICAL: NEVER use JavaScript, ternary expressions, or conditional logic anywhe
 """
 
 
-def build_repair_prompt(original_prompt: str, today: str, responses: list, errors_422: list) -> str:
+def build_repair_prompt(original_prompt: str, today: str, responses: list, errors_422: list, skipped_calls: list = None) -> str:
     # Summarise what succeeded — include id, version, name so repair calls can reference them
     _FIELDS = ("id", "version", "name")
     succeeded = []
@@ -698,8 +702,21 @@ def build_repair_prompt(original_prompt: str, today: str, responses: list, error
         )
     error_section = "\n".join(error_lines)
 
+    skipped_section = ""
+    if skipped_calls:
+        skipped_lines = [
+            f"  {c.get('method','?')} {c.get('endpoint','?')}: body={json.dumps(c.get('body') or {})[:200]}"
+            for c in skipped_calls
+        ]
+        skipped_section = f"""
+SKIPPED CALLS (were skipped because a dependency failed — must also be included in your repair):
+These calls could not run because a prior call failed. Now that you are fixing that failure,
+you MUST include corrected versions of ALL skipped calls too, referencing the new IDs you create:
+{chr(10).join(skipped_lines)}
+"""
+
     return f"""You are a Tripletex accounting API expert. Some API calls failed with validation or conflict errors (422 or 409).
-Generate ONLY the corrected replacement calls needed to fix these failures.
+Generate corrected replacement calls needed to fix these failures — AND include any skipped downstream calls.
 
 ORIGINAL TASK: "{original_prompt}"
 TODAY: {today}
@@ -709,7 +726,7 @@ PREVIOUSLY SUCCEEDED (you can reference these via $responses.N.value.id):
 
 FAILED CALLS:
 {error_section}
-
+{skipped_section}
 Read the error messages carefully and generate corrected calls.
 Each call object MUST use "endpoint" (not "path" or "url") for the URL path field.
 REMINDER for POST /ledger/voucher: only valid fields are date, description, postings.
@@ -774,12 +791,15 @@ async def solve(req: SolveRequest):
 
     # --- Execute initial plan ---
     responses  = []
-    errors_422 = execute_calls(calls, responses, base_url, session_token, deadline)
+    errors_422, skipped_calls = execute_calls(calls, responses, base_url, session_token, deadline)
 
     # --- One repair pass for 422 validation errors and 409 version conflicts ---
-    if errors_422 and (deadline - time.time()) > 40:
-        logger.info("Attempting repair pass for %d error(s) (422/409)", len(errors_422))
-        repair_prompt = build_repair_prompt(prompt, today, responses, errors_422)
+    if (errors_422 or skipped_calls) and (deadline - time.time()) > 40:
+        if errors_422:
+            logger.info("Attempting repair pass for %d error(s) (422/409), %d skipped call(s)", len(errors_422), len(skipped_calls))
+        else:
+            logger.info("Attempting repair pass for %d skipped call(s) (no 422 errors)", len(skipped_calls))
+        repair_prompt = build_repair_prompt(prompt, today, responses, errors_422, skipped_calls)
         try:
             raw_repair   = call_llm(repair_prompt, deadline)
             repair_plan  = extract_json(raw_repair)
