@@ -383,6 +383,8 @@ POST /supplier  (create a new supplier / leverandør):
             physicalAddress ({{"addressLine1": "...", "postalCode": "...", "city": "..."}})
   NOTE: Use isSupplier: true (not isCustomer) when creating a supplier.
         Address fields: postalAddress/physicalAddress — NOT visitingAddress.
+  SEARCH FIRST — CRITICAL: If the task references an existing supplier (by org number or name), do GET /supplier?organizationNumber=X&fields=id,name,organizationNumber first (or GET /supplier?name=X&fields=id,name if no org number).
+    If found (count > 0): use "$responses.N.values.0.id" for all downstream references — do NOT also POST /supplier for the same supplier — omit it entirely.
 
 POST /department:
   REQUIRED: name
