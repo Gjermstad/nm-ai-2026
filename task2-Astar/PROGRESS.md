@@ -1,6 +1,34 @@
 # Progress Report: Astar Island Operator (Task 2)
 
-## 0. Latest Session Update (2026-03-21, Saturday ~20:50 Oslo)
+## 0. Latest Session Update (2026-03-21, Saturday ~23:00 Oslo)
+
+- Round 17 final organizer result confirmed from screenshots:
+  - average: `51.7` points
+  - per-seed: `52.1`, `51.2`, `50.4`, `51.4`, `53.4`
+  - usage/submission: `50/50` queries, `5/5` submitted
+- PR/deploy continuity:
+  - PR #35 merged (floor-tolerance hardening + hosted recovery notes)
+  - PR #36 merged (Round 16 screenshot-driven calibration)
+  - deployed merged code to Cloud Run revision `astar-operator-00003-xmc`
+  - deploy performed via local `gcloud` CLI using `CLOUDSDK_CONFIG=/tmp/gcloud-config` (not Cloud Shell)
+- Round 18 operations completed so far:
+  - `run_enabled=true`, `deadline_guard_enabled=true`, `profile=safe`
+  - progressed to `40/50`, executed baseline `draft/rebuild` + `submit/all` (`failed=[]`)
+  - progressed to `48/50`, `submitted_count=5`
+  - service intentionally pauses auto-query at `48/50` while `seconds_to_close > 30m` due built-in guard in `_run_query_cycle_if_needed`
+  - current live handoff status snapshot:
+    - `queries.used/max=48/50`
+    - `submitted_count=5`
+    - `run_enabled=true`
+    - `deadline_guard_enabled=true`
+    - `last_error=null`
+    - `seconds_to_close=6362.694253`
+- Operator preferences captured for future sessions:
+  - never reuse merged PRs; always create a fresh PR for follow-up changes
+  - do not block the chat by waiting in long hold loops; arm run and return availability
+  - if operator says “wait with submit”, do not call submit endpoints until explicit go-ahead
+
+## 0.1 Previous Session Update (2026-03-21, Saturday ~20:50 Oslo)
 
 - Incorporated Round 16 post-mortem screenshots (all 5 seeds, layer-analysis) for calibration:
   - consistent pattern found: `Empty` underprediction and overly diffuse `Settlement`/`Port`/`Ruin` mass
@@ -19,7 +47,7 @@
   - tuning patch prepared and pushed to PR branch for review
   - intentionally not auto-deployed mid-round.
 
-## 0.1 Previous Session Update (2026-03-21, Saturday ~20:38 Oslo)
+## 0.2 Previous Session Update (2026-03-21, Saturday ~20:38 Oslo)
 
 - Goal for this pass: maximize Round 17 score while preserving deadline safety.
 - Live hosted optimization run executed on `https://astar-operator-u4ol5cv7ra-lz.a.run.app`:
@@ -48,7 +76,7 @@
   - `task2-Astar/tests/test_core.py`: added regression for near-floor float roundoff in validation
   - local tests: `pytest -q task2-Astar/tests/test_core.py` => `7 passed`
 
-## 0.2 Previous Session Update (2026-03-21, Saturday ~20:12 Oslo)
+## 0.3 Previous Session Update (2026-03-21, Saturday ~20:12 Oslo)
 
 - Continued Task 2 with required file-read order:
   - `task2-Astar/AGENT.md`
@@ -78,7 +106,7 @@
   - no architecture changes
   - floor safety (`0.01`) and deadline guard behavior unchanged
 
-## 0.3 Previous Session Update (2026-03-21, Saturday ~20:02 Oslo)
+## 0.4 Previous Session Update (2026-03-21, Saturday ~20:02 Oslo)
 
 - Deployed Task 2 service to Cloud Run in GCP project `ai-nm26osl-1730`:
   - service: `astar-operator`

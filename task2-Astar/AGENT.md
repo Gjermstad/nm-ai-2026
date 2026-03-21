@@ -2,7 +2,7 @@
 
 > NM i AI 2026 — Task 2 handoff/control file
 > Last updated: 2026-03-21 (Saturday, Oslo)
-> Status: Round 17 optimization run completed with `48/50` queries and refreshed `5/5` hosted submissions (~20:38 Oslo). Aggressive-profile floor validation drift was mitigated live by switching back to safe profile before rebuild+submit; local floor-tolerance and screenshot-driven calibration patches are prepared and tested (not yet redeployed).
+> Status: PR #35 and PR #36 are merged and deployed on Cloud Run revision `astar-operator-00003-xmc`. Round 17 completed at `51.7` avg (`5/5` submitted, `50/50` queries). Round 18 is active with `run_enabled=true`, `deadline_guard_enabled=true`, and current live state at `48/50` with `5/5` submitted.
 
 ---
 
@@ -35,7 +35,7 @@ Implemented components:
 - Backend service: `main.py`, `backend.py`, `core.py`
 - UI: `static/index.html`, `static/app.js`, `static/styles.css`
 - Docs: `SPEC.md`, `README.md`, `PROGRESS.md`
- - Tests: `tests/test_core.py` (9 passing)
+- Tests: `tests/test_core.py` (9 passing)
 
 Implemented internal endpoints:
 - `GET /health`, `GET /status`, `GET /seed/{seed_index}`
@@ -137,7 +137,7 @@ curl -sS "$BASE/status"
 - Region: `europe-north1`
 - Service: `astar-operator`
 - URL: `https://astar-operator-u4ol5cv7ra-lz.a.run.app`
-- Latest verified revision: `astar-operator-00002-6zj`
+- Latest verified revision: `astar-operator-00003-xmc`
 
 ### Latest hosted smoke snapshot (2026-03-21 ~20:12 Oslo)
 
@@ -190,7 +190,23 @@ curl -sS "$BASE/status"
   - guard unknown-terrain empty dominance
   - bound aggressive near-settlement dynamic mass
 - Deployment note:
-  - patch is committed/pushed for review but intentionally not redeployed automatically during active round.
+  - calibration patch was merged (PR #36) and deployed to Cloud Run revision `astar-operator-00003-xmc`.
+
+### Round 17/18 operations snapshot (2026-03-21 late session)
+
+- Round 17 final outcome from organizer UI:
+  - round score: `51.7`
+  - per-seed: `52.1`, `51.2`, `50.4`, `51.4`, `53.4`
+  - usage/submission: `50/50` queries, `5/5` submitted
+- PR/merge/deploy chain:
+  - PR #35 merged (floor tolerance + hosted recovery docs)
+  - PR #36 merged (Round 16 screenshot-based calibration)
+  - deployed from local `gcloud` CLI (`CLOUDSDK_CONFIG=/tmp/gcloud-config`), not Cloud Shell
+- Round 18 live execution:
+  - run mode armed and deadline guard enabled
+  - reached `40/50`, performed baseline `draft/rebuild` + `submit/all` (`failed=[]`)
+  - query loop naturally paused at `48/50` due built-in >30m hold rule in `_run_query_cycle_if_needed`
+  - final live state for handoff: `run_enabled=true`, `deadline_guard_enabled=true`, `queries=48/50`, `submitted_count=5`, `last_error=null`
 
 ---
 
@@ -212,6 +228,9 @@ curl -sS "$BASE/status"
 6. When syncing organizer docs through MCP, fetch each resource with retries and a fresh `initialize` session per resource to avoid intermittent `Session not found` failures.
 7. Treat organizer docs as canonical, but sanitize obvious upstream artifacts/noise before saving local copies.
 8. Do not paste raw access tokens in logs/docs/PR text; store in env/secret systems only.
+9. Assume merged PRs are closed; create a fresh branch + new PR for follow-up commits (do not reuse prior merged PR).
+10. Do not block the session by waiting in long hold loops (for example, waiting at `48/50` until T-30m). Arm run mode and return control to operator.
+11. If operator says to wait before submitting, do not execute submit endpoints until explicit go-ahead.
 
 ---
 
@@ -219,4 +238,4 @@ curl -sS "$BASE/status"
 
 Use this when starting a new session:
 
-"Continue Task 2 Astar from `task2-Astar`. Read `AGENT.md`, `PROGRESS.md`, and `SPEC.md` first, then run a hosted-first smoke workflow (`/health`, `/status`, `run/start`, query progression, `run/stop`, `draft/rebuild`, `submit/seed`, `submit/all`) and only fall back to local if hosted is blocked. Report final `queries.used/max`, `submitted_count`, `run_enabled`, `last_error`, and `seconds_to_close`. Keep the existing architecture; optimize for fast reliable competition execution."
+"Continue Task 2 Astar from `task2-Astar`. Read `AGENT.md`, `PROGRESS.md`, and `SPEC.md` first. Then check hosted `/status` and optimize live round operations without long blocking waits: run to ~40, rebuild+submit baseline, keep run enabled, and re-check near deadline for final lock-in. Respect operator preferences: never reuse merged PRs, and never submit when asked to wait. Report `queries.used/max`, `submitted_count`, `run_enabled`, `deadline_guard_enabled`, `last_error`, and `seconds_to_close`."
