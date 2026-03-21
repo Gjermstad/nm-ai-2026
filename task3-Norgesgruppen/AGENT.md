@@ -1,8 +1,8 @@
 # AGENT.md — Task 3: NorgesGruppen Object Detection
 
 > NM i AI 2026 — Task 3 handoff/control file
-> Last updated: 2026-03-22 (Sunday, Oslo)
-> Status: Baseline checkpoints now recorded with exact timestamps; documentation sync contract enforced to prevent local-only memory drift.
+> Last updated: 2026-03-22 00:42 CET (Sunday, Oslo)
+> Status: Guarded ONNX candidate prepared (`submission_task3_guarded.zip`); full dry run succeeded in 45s on 248 images.
 
 ---
 
@@ -114,18 +114,18 @@ Treat these as prior operational notes; re-validate before relying on them in a 
 
 ## 6. Packaging and Submission Flow
 
-On training VM:
+Latest validated packaging flow (VM user `kenneth` workspace):
 ```bash
-cd ~/nm-ai-2026/task3-Norgesgruppen
-zip -j ~/submission.zip run.py best.onnx
+cd ~/task3-recovery
+zip -j ~/submission_task3_guarded.zip run.py best.onnx
 ```
 
-From Cloud Shell:
+Download artifact from VM:
 ```bash
-gcloud compute scp yolo-training-vm:~/submission.zip ~/submission.zip --zone=europe-west1-c
+gcloud compute scp yolo-training-vm:~/submission_task3_guarded.zip ~/submission_task3_guarded.zip --zone=europe-west1-c
 ```
 
-Then download `~/submission.zip` and submit in app UI.
+Then upload `submission_task3_guarded.zip` in app UI.
 
 ---
 
