@@ -1,122 +1,79 @@
 # Progress Report: Tripletex AI Accounting Agent
 
-## 1. Current state
+## 1. Current state (2026-03-21 ~17:00 CET)
 
-A Hybrid Repair agent is deployed to Cloud Run. It uses a single LLM call to plan all Tripletex API calls upfront, executes them sequentially, and makes one corrective LLM call if any calls returned 422 validation errors or 409 revision conflicts. The agent has been through 8 PRs of iteration. All PRs are merged into main and deployed.
+A Hybrid Repair agent is deployed to Cloud Run. **PR #18 is merged but NOT YET DEPLOYED** — the current live container is pre-PR-#18. Must `git pull && redeploy` from `~/nm-ai-2026-1`.
 
 **Deployed URL:** `https://tripletex-agent-997219197351.europe-north1.run.app`
+
+**Tier 3 tasks** are live since ~11:00 CET March 21. These include harder accounting tasks (ledger, complex multi-step).
+
+---
 
 ## 2. What is implemented
 
 ### Core architecture
 - `/solve` endpoint (FastAPI) accepting prompt, files (PDF/image), and Tripletex credentials
 - Single-shot planner: Gemini 2.5 Flash (Vertex AI global endpoint, `responseMimeType: application/json`) generates a full call plan in one LLM call
-- Bounded repair pass: if any calls return 422 (validation error) or 409 (revision/version conflict), one corrective LLM call is made with full error context including field-level validation messages, HTTP status codes, and a plain-English hint per error type
+- Bounded repair pass: if any calls return 422 or 409, one corrective LLM call is made with full error context
 - Parse failure retry: if the LLM output fails JSON parsing, one corrective prompt is sent before giving up
-- File handling: base64 decode + PDF text extraction via `pypdf` (3000 char cap per file), fail-soft
-- Generalized placeholder resolver: resolves `$responses.N.value.FIELD` and `$responses.N.values.INDEX.FIELD` for any field name and list index
-- Timeout budgeting: 255s deadline tracked from request start, checked before every LLM call (needs 30s) and every API call (needs 5s)
-- Hard cap of 12 total Tripletex API calls per request (efficiency protection)
-- Optional inbound API key: `SOLVE_API_KEY` env var enables Bearer token auth on `/solve`; no-op when unset
-- BETA endpoint block: 5 confirmed 403-returning endpoints listed in prompt so Gemini never tries them
+- File handling: base64 decode + PDF text extraction via `pypdf` (3000 char cap per file)
+- Placeholder resolver: `$responses.N.value.FIELD` and `$responses.N.values.INDEX.FIELD`
+- Timeout budgeting: 255s deadline, checked before every LLM and API call
+- Hard cap of 12 total Tripletex API calls per request
+- BETA endpoint block: confirmed 403 endpoints listed so Gemini never tries them
+- List response wrap: `if isinstance(plan, list): plan = {"calls": plan}` — prevents crash when Gemini returns raw array
 
-### Error handling
-- **403 Forbidden**: abort immediately — invalid/expired session token, no point continuing
-- **429 Too Many Requests**: abort immediately — rate limit hit, subsequent calls would also fail
-- **409 Conflict (code 8000, Revision Exception)**: collected for repair pass — stale `version` field on PUT, LLM is told to re-GET and use correct version
-- **422 Unprocessable Entity**: collected for repair pass — missing or malformed fields, LLM is told to fix based on `validationMessages[].field` and `validationMessages[].message`
-- **Malformed call objects**: skipped with warning if `method` or `endpoint` is missing or non-string
-- **204 No Content**: treated as success (DELETE and some action endpoints return no body)
+### What PR #18 fixed (merged, needs deploy)
+1. **POST /employee**: Added explicit NOTE — do NOT include `startDate` or `employmentDate` (these don't exist on Employee object, cause 422)
+2. **POST /supplier**: Added full endpoint section with required/optional fields and `isSupplier: true`
+3. **POST /customer**: Added `organizationNumber` to optional fields with note to always include it if provided
 
-### Unit tests (14 tests, all passing)
-Tests cover: placeholder resolution (all field types and edge cases), JSON extraction (clean, fenced, preamble, invalid), executor malformed call skip, call cap enforcement, 403/429 abort, 422/409 error collection.
+---
 
-## 3. Endpoints covered in the planning prompt
+## 3. Task types seen in validator (21 confirmed)
 
-| Endpoint | Operations | Notes |
-|---|---|---|
-| `/employee` | GET, POST, PUT | PUT requires `version` field from GET response |
-| `/customer` | GET, POST, PUT | PUT requires `version` field from GET response |
-| `/department` | GET, POST | GET always done first before creating an employee |
-| `/project` | POST | Requires `projectManager.id` from GET /employee |
-| `/order` | POST | Creates order with order lines; `deliveryDate` required; `isPrioritizeAmountsIncludingVat` controls VAT field |
-| `/order/{id}/:invoice` | PUT (action) | Converts order to invoice; `invoiceDate` required query param; `sendToCustomer=false` default |
-| `/invoice` | GET, POST | POST alternative to action endpoint; `sendToCustomer=false` query param default |
-| `/invoice/{id}/:payment` | PUT (action) | Registers payment; all params are **query params** — `paymentDate`, `paymentTypeId`, `paidAmount` required |
-| `/invoice/{id}/:createCreditNote` | PUT (action) | Issues credit note; all params are **query params** — `date` required, `sendToCustomer=false` default |
-| `/product` | POST | `name` required; optional price fields |
-| `/travelExpense` | GET, POST, PUT, DELETE | PUT requires `version` field from GET response; `title` field (not `description`); dates in `travelDetails` |
-| `/ledger/account` | GET | Look up account IDs by account number |
-| `/ledger/voucher` | GET, POST, DELETE | POST creates voucher with account entries |
-| `/ledger/posting` | GET | Query ledger postings by date range |
-
-**Key correctness notes confirmed from sandbox testing and OpenAPI spec:**
-- `PUT /invoice/{id}/:payment` and `PUT /invoice/{id}/:createCreditNote` take **only query parameters** — no request body. Sending a JSON body does nothing.
-- `PUT /order/{id}/:invoice` is the canonical way to invoice a single order. It also takes only query params.
-- `sendToCustomer` defaults to sending — always explicitly pass `sendToCustomer=false` unless the prompt says to send.
-- VAT: if the Order has `isPrioritizeAmountsIncludingVat=true`, use `unitPriceIncludingVatCurrency` on order lines. Otherwise use `unitPriceExcludingVatCurrency`.
-- `POST /order` requires `deliveryDate` — set it equal to `orderDate` by default (confirmed via sandbox 422).
-- `POST /travelExpense` uses `title` (not `description`), and dates go inside `travelDetails.departureDate`/`returnDate`, not at top level (confirmed via sandbox 422).
-- `GET /order` requires `orderDateFrom` and `orderDateTo` — cannot list orders without date range.
-- `GET /invoice` also requires date range params.
-
-## 4. Smoke test results (PR #8, 2026-03-20)
-
-Tested against deployed agent with sandbox credentials:
-
-| Task | Result | Notes |
-|---|---|---|
-| Create employee (Ola Nordmann, ola@example.com) | ✅ Pass | Employee created with correct name and email |
-| Delete travel expense | ✅ Pass | Agent correctly GET'd and DELETE'd the expense |
-| Create order | ❌ → ✅ Fixed in PR #8 | Was failing with 422: missing `deliveryDate` |
-| Create travel expense | ❌ → ✅ Fixed in PR #8 | Was failing with 422: wrong field names in prompt |
-| Order → invoice | ⚠️ Untestable in sandbox | Sandbox company has no bank account configured — 422 from Tripletex. Expected to work in validator env. |
-| Register payment / credit note | ⚠️ Untestable in sandbox | Depends on invoice creation — same sandbox limitation. |
-
-## 5. Validator task types seen (live, 2026-03-21)
-
-Note on T1/T2: the leaderboard columns T1/T2/T3 are the three competition tasks (Tripletex, NorgesGruppen, Astar Island) — not sub-tiers within Tripletex. "Tier" below refers to internal difficulty (Tier 1 = simple CRUD, Tier 2 = multi-step/action endpoints, Tier 3 = ledger/complex).
-
-| # | Prompt (language) | Result | Points | Tier | Root cause of failure |
-|---|---|---|---|---|---|
-| 1 | Credit note for Luna SL — "Almacenamiento en la nube" 31750 NOK (Spanish) | ✅ 5/5 | 8/8 | 2 | — |
-| 2 | Create and send invoice to Fjelltopp AS, 42600 NOK, Nettverksteneste (Nynorsk) | ❌ 0/5 | 0/7 | 2 | Bank account 422 on `PUT /order/:invoice` — validator env issue |
-| 3 | Set fixed price 429500 NOK on project "ERP-implementering" for Elvdal AS, invoice 33% (Nynorsk) | ⚠️ 1/4 | 2/8 | 3 | Bank account 422 on invoice; project fixed-price = BETA (403) |
-| 4 | Register payment on Brattli AS invoice, 31300 NOK "Konsulenttimer" (Norwegian) | ⚠️ 1/2 | 2/7 | 2 | GET /invoice missing `invoiceDateFrom`/`invoiceDateTo` → 422 → unresolved placeholder → 404 on payment |
-| 5 | Reverse bank return — Lysgård AS, 15600 NOK "Konsulenttimer" → reinstate invoice (Norwegian) | ⚠️ 1/3 | 2/8 | 2 | Same GET /invoice date params missing; repair used `"path"` instead of `"endpoint"` |
-| 6 | Create order + invoice + payment for Waldstein GmbH, Netzwerkdienst + Beratungsstunden (German) | ⚠️ 3/5 | 4/8 | 2 | Invoice creation worked ✅; payment 404 because `paidAmount` placeholder not resolved in params (bug fixed PR #12) |
-| 7 | Create project "Intégration Montagne" for Montagne SARL, PM Nathan Martin (French) | ✅ 7/7 | 8/8 | 1 | — |
-| 8 | Create order + invoice + payment for Río Verde SL, 2 products (Spanish) | ⚠️ 3/4 | 4/8 | 2 | Payment 404 — invoice id 2147557274 > INT32_MAX, may overflow in proxy; paidAmount was hardcoded 63000.0 (correct) |
-| 9 | Create customer Sonnental GmbH with address Solveien 21 Tromsø (German) | ❌ 0/1 | 0/8 | 1 | `POST /customer` address: tried `visitingAddress` (nested) and `visitingAddressLine1` (flat), both 422. Correct field: `postalAddress` (fixed PR #13) |
-| 10 | Create invoice for Havbris AS, 3 lines: 25%/15%/0% VAT (Norwegian) | ❌ 0/8 | 0/8 | 2 | Mixed VAT rates — vatType id=3 invalid for this company; Gemini guessed wrong IDs. Fix: GET /vat/type first (PR #14) |
-| 11 | Log 34 hours for Charlotte Williams on "Analyse" in "Security Audit", invoice Windmill Ltd (English) | ❌ 0/8 | 0/8 | 2 | Used wrong endpoint `/timesheet` (correct: `/timesheet/entry`); used `GET /product` for activity (correct: `GET /activity`); tried `POST /invoice/fromTimesheet` (405). Fixed PR #14 |
-| 12 | Create departments "Drift", "Logistikk", "IT" (Portuguese) | ✅ 7/7 | 8/8 | 1 | — |
-| 13 | Create and SEND invoice to Stormberg AS, 31250 NOK, Opplæring (Norwegian) | ❌ 0/7 | 0/8 | 2 | Bank account 422 on `PUT /order/:invoice` — validator env issue |
-| 14 | Invoice Sierra SL: 3 lines, 25%/15%/0% VAT (Spanish) | ❌ 0/8 | 0/8 | 2 | `GET /vat/type` → 404 (doesn't exist); Gemini used JSONPath `[?(@.percentage==25.0)]` which is unsupported → literal string → 422. Fixed PR #15: hardcode IDs 3/5/omit, block JSONPath |
-| 15 | Travel expense for Pablo Rodríguez "Conferencia Ålesund", 5 days per diems + flight + taxi (Spanish) | ⚠️ 2/8 | 2/8 | 2 | Header created ✓; individual costs (flight, taxi) not added — `POST /travelExpense/cost` is BETA (403) |
-| 16 | Set fixed price 324900 NOK on project "Migração para nuvem", invoice 50% milestone, PM Tiago Santos (Portuguese) | ❌ 0/8 | 0/8 | 3 | Gemini returned raw JSON array `[...]` → crash `AttributeError: list has no .get`. Fixed PR #16: wrap list in dict |
-| 17 | Invoice Bergwerk GmbH: 3 lines, 25%/15%/0% VAT (German) | ❌ 0/8 | 0/8 | 2 | Order created ✓ (vatType fix working); invoice 422 bank account env issue |
-| 18 | Supplier invoice INV-2026-4811 from Montanha Lda 33200 NOK incl. VAT, account 7300 (Portuguese) | ❌ 0/8 | 0/8 | 2 | `POST /supplier/invoice` → 405; `POST /supplierInvoice` also does not exist. Fallback: ledger voucher |
-| 19 | Create employee + set employment start date (Norwegian) | ❌ 0/8 | 0/8 | 1 | Gemini added `startDate`/`employmentDate` to POST /employee body → 422. These fields don't exist on Employee object; they belong to Employment sub-resource. Fixed PR #18: added NOTE to prompt. |
-| 20 | Create supplier (leverandør) (Norwegian/German) | ❌ 0/7 | 0/8 | 1 | Gemini returned `{"calls": []}` — POST /supplier not in prompt. Fixed PR #18: added POST /supplier section. |
-| 21 | Create customer with organizationNumber (Norwegian) | ❌ 0/8 | 0/8 | 1 | Customer created (201) but `organizationNumber` missing from body → validator check failed. Fixed PR #18: added organizationNumber to POST /customer optional fields. |
-| 22 | (New type from submit #35 — details pending) | ❌ | 0/8 | ? | — |
+| # | Prompt summary (language) | Score | Tier | Root cause of failure / fix |
+|---|---|---|---|---|
+| 1 | Credit note for Luna SL — "Almacenamiento en la nube" 31750 NOK (Spanish) | ✅ 8/8 | 2 | — |
+| 2 | Create and send invoice to Fjelltopp AS, 42600 NOK, Nettverksteneste (Nynorsk) | ❌ 0/7 | 2 | Bank account 422 on `PUT /order/:invoice` — validator env issue |
+| 3 | Set fixed price 429500 NOK on project "ERP-implementering" for Elvdal AS, invoice 33% (Nynorsk) | ⚠️ 2/8 | 3 | Bank account 422 on invoice; fixed-price endpoint is BETA (403) |
+| 4 | Register payment on Brattli AS invoice, 31300 NOK "Konsulenttimer" (Norwegian) | ⚠️ 2/7 | 2 | GET /invoice missing `invoiceDateFrom`/`invoiceDateTo` → 422 → unresolved placeholder → 404 payment. Fixed PR #12. |
+| 5 | Reverse bank return — Lysgård AS, 15600 NOK "Konsulenttimer" → reinstate invoice (Norwegian) | ⚠️ 2/8 | 2 | Same GET /invoice date params; repair used `"path"` instead of `"endpoint"`. Fixed PR #11/#12. |
+| 6 | Create order + invoice + payment for Waldstein GmbH, Netzwerkdienst + Beratungsstunden (German) | ⚠️ 4/8 | 2 | Invoice worked ✅; payment 404 — `paidAmount` placeholder not resolved in params. Fixed PR #12. |
+| 7 | Create project "Intégration Montagne" for Montagne SARL, PM Nathan Martin (French) | ✅ 8/8 | 1 | — |
+| 8 | Create order + invoice + payment for Río Verde SL, 2 products (Spanish) | ⚠️ 4/8 | 2 | Payment 404 — invoice ID 2147557274 > INT32_MAX; paidAmount hardcoded correctly. Unfixable (validator env). |
+| 9 | Create customer Sonnental GmbH with address Solveien 21 Tromsø (German) | ❌ 0/8 | 1 | Wrong address fields (`visitingAddress`). Fixed PR #13: use `postalAddress`/`physicalAddress`. |
+| 10 | Create invoice for Havbris AS, 3 lines: 25%/15%/0% VAT (Norwegian) | ❌ 0/8 | 2 | GET /vat/type → 404; Gemini used JSONPath filter → wrong vatType. Fixed PR #15: hardcode IDs 3/5/omit. |
+| 11 | Log 34 hours for Charlotte Williams on "Analyse" in "Security Audit", invoice Windmill Ltd (English) | ❌ 0/8 | 2 | Wrong endpoint `/timesheet` (correct: `/timesheet/entry`); wrong activity lookup. Fixed PR #14. |
+| 12 | Create departments "Drift", "Logistikk", "IT" (Portuguese) | ✅ 8/8 | 1 | — |
+| 13 | Create and SEND invoice to Stormberg AS, 31250 NOK, Opplæring (Norwegian) | ❌ 0/8 | 2 | Bank account 422 — validator env issue |
+| 14 | Invoice Sierra SL: 3 lines, 25%/15%/0% VAT (Spanish) | ❌ 0/8 | 2 | Same GET /vat/type → 404. Fixed PR #15. |
+| 15 | Travel expense for Pablo Rodríguez "Conferencia Ålesund", per diems + flight + taxi (Spanish) | ⚠️ 2/8 | 2 | Header created ✓; individual costs BETA (POST /travelExpense/cost → 403). Fixed PR #17: note in prompt. |
+| 16 | Fixed price 324900 NOK project "Migração para nuvem", invoice 50% milestone (Portuguese) | ❌ 0/8 | 3 | Gemini returned raw JSON array → crash `AttributeError`. Fixed PR #16: wrap list in dict. |
+| 17 | Invoice Bergwerk GmbH: 3 lines, 25%/15%/0% VAT (German) | ❌ 0/8 | 2 | Order ✓ (vatType fix working); invoice 422 bank account env issue. |
+| 18 | Supplier invoice INV-2026-4811 from Montanha Lda 33200 NOK, account 7300 (Portuguese) | ❌ 0/8 | 2 | `POST /supplier/invoice` → 405. Fixed PR #17: use POST /ledger/voucher for supplier invoices. |
+| 19 | Create employee + set employment start date (Norwegian) | ❌ 0/8 | 1 | `startDate`/`employmentDate` not on Employee object → 422. Fixed PR #18: NOTE in prompt. |
+| 20 | Create supplier (leverandør) (Norwegian/German) | ❌ 0/8 | 1 | Gemini returned `{"calls": []}` — POST /supplier not in prompt. Fixed PR #18: added endpoint. |
+| 21 | Create customer with organizationNumber (Norwegian) | ❌ 0/8 | 1 | Customer created (201) but `organizationNumber` missing from body. Fixed PR #18: added to optional fields. |
+| 22 | Unknown (from submit #35 — logs not captured) | ❌ | ? | — |
 
 **Patterns observed:**
-- Credit notes on existing invoices → works perfectly ✅
-- Create project → works perfectly ✅
-- Creating new invoices → sometimes fails with bank account 422 (validator env), sometimes works (task #6, #8)
-- `GET /invoice` always requires `invoiceDateFrom` + `invoiceDateTo` — Gemini keeps omitting them → fixed in PR #12
-- `params` placeholders (e.g. `paidAmount: "$responses.N.value.amountCurrency"`) were never resolved → fixed in PR #12
-- Repair pass using `"path"` or `"url"` instead of `"endpoint"` → fixed in PR #11
-- `POST /customer` address fields: `postalAddress`/`physicalAddress` (not `visitingAddress`) → fixed in PR #13
-- `POST /employee`: `startDate`/`employmentDate` are not Employee fields → 422; omit them → fixed PR #18
-- `POST /supplier` was missing from prompt → Gemini returned empty plan → fixed PR #18
-- `POST /customer` missing `organizationNumber` → validator fails even on 201 → fixed PR #18
+- Credit notes on existing invoices → works ✅
+- Create project + assign PM → works ✅
+- Create departments → works ✅
+- New invoice creation → intermittently fails with bank account 422 (validator env), unfixable
+- Payment 404 for invoice IDs > INT32_MAX → unfixable (validator proxy overflow)
+- `GET /invoice` always requires `invoiceDateFrom` + `invoiceDateTo` — enforced in prompt (PR #12)
+- `POST /customer` address: must use `postalAddress`/`physicalAddress` (fixed PR #13)
+- Mixed VAT rates: hardcode IDs 3/5/omit — do NOT call GET /vat/type (fixed PR #15)
+- `POST /travelExpense/cost` is BETA (fixed PR #17)
 
-## 10. Endpoint verification status
+---
 
-Verified working (seen 201/200 in logs):
+## 4. Endpoint verification status
+
+### Verified working (seen 200/201/204 in validator logs)
 - `GET /customer`, `GET /employee`, `GET /project`, `GET /department`, `GET /activity`
 - `POST /customer`, `POST /employee`, `POST /department`, `POST /project`, `POST /order`, `POST /product`
 - `POST /travelExpense`, `PUT /travelExpense/{id}`, `DELETE /travelExpense/{id}`
@@ -124,66 +81,71 @@ Verified working (seen 201/200 in logs):
 - `GET /invoice` (requires `invoiceDateFrom`/`invoiceDateTo`), `GET /ledger/account`, `GET /supplier`
 - `POST /ledger/voucher`
 
-Verified NOT working (confirmed from logs):
-- `GET /vat/type` → 404 (endpoint does not exist)
+### Verified NOT working
+- `GET /vat/type` → 404
 - `POST /supplier/invoice` → 405
 - `POST /invoice/fromTimesheet` → 405
 - `POST /timesheet` (no `/entry`) → 404
 - `POST /timeSheet` (capital S) → 404
 
-BETA (returns 403 in validator environment):
+### BETA (always 403 in validator)
 - `PUT /project/{id}`, `DELETE /project/{id}`, `DELETE /customer/{id}`
 - `PUT /order/orderline/{id}`, `DELETE /order/orderline/{id}`
-- `POST /travelExpense/cost` (confirmed BETA via API spec)
+- `POST /travelExpense/cost`
 
-Unverified / uncertain (not yet attempted in validator):
-- `POST /supplierInvoice` — likely does not exist for creation; use `POST /ledger/voucher` instead
-- `POST /timesheet/entry` — correct per API spec, not yet confirmed in validator logs
-- `GET /activity` — correct per API spec, not yet confirmed in validator logs
-- Order→invoice→payment: paidAmount should use `$responses.N.value.amountCurrency` placeholder → fixed in PR #13
+### Unverified (added to prompt but not yet confirmed in validator logs)
+- `POST /supplier` — added PR #18; correct per API spec; not yet seen in live logs
+- `POST /timesheet/entry` — correct per API spec; not yet seen in live logs
 
-## 6. What still needs to be done
+---
 
-1. **Merge PR #11 and redeploy** — fixes `"path"` vs `"endpoint"` in repair output
-2. **Keep submitting** — hit as many of the 30 task types as possible; each new type is a scoring opportunity
-3. **Prompt tuning from new logs** — update this table as new task types come in and fix any new failure patterns
+## 5. What to do next
+
+### Immediate (top priority)
+1. **Redeploy** — PR #18 merged but not deployed. Run `git pull` then `gcloud run deploy` from `~/nm-ai-2026-1`
+2. **Submit repeatedly** — gather logs for new Tier 3 task types, and confirm PR #18 fixes for types #19/20/21
+
+### Known fixes pending (once confirmed by logs)
+3. **Ledger/voucher details** — if Tier 3 tasks include complex ledger entries, improve the POST /ledger/voucher guidance
+4. **Employment sub-resource** — if "set employee start date" returns: POST /employee/employment with `{employeeId, startDate}` but this is unverified; confirm from spec first
+5. **GET /project with customer filter** — for project lookup: `GET /project?name=X&customer.id=Y`
+6. **POST /timesheet/entry** — confirm in validator logs; if it fails check exact field names
+
+### Strategy for remaining ~22 hours
+- Keep submitting to discover new task types (30 total, 21 seen so far)
+- Each successful new task type = points scored even if the validator submits it only once
+- Tier 3 tasks are now in the pool — focus on understanding what they ask and fixing failures fast
+
+---
 
 ## 6. Key technical details
 
 - **Project ID:** `ai-nm26osl-1730`
 - **Cloud Run region:** `europe-north1`
 - **Cloud Run service:** `tripletex-agent`
+- **Working directory for deploy:** `~/nm-ai-2026-1/task1-Tripletex` (NOT `~/nm-ai-2026`)
 - **Model:** `gemini-2.5-flash` via Vertex AI global endpoint (service account auth, no API key needed)
-- **Gemini JSON mode:** enabled (`responseMimeType: application/json`) — constrains output to valid JSON
+- **Gemini JSON mode:** enabled (`responseMimeType: application/json`)
 
-## 7. How to run locally
+---
+
+## 7. How to run locally (for reference)
 
 ```bash
 # On the Workbench VM (port 8082 — port 8080 is taken by JupyterLab)
-cd ~/nm-ai-2026/task1-Tripletex && uvicorn main:app --host 0.0.0.0 --port 8082
+cd ~/nm-ai-2026-1/task1-Tripletex && uvicorn main:app --host 0.0.0.0 --port 8082
 ```
 
-Note: the GCP metadata server is not available locally, so `get_access_token()` will fail and LLM calls will not work. Use the deployed Cloud Run instance for real end-to-end testing.
+Note: GCP metadata server not available locally, so LLM calls fail. Use deployed Cloud Run for real testing.
 
-## 8. How to run unit tests
+---
+
+## 8. Unit tests
 
 ```bash
-cd ~/nm-ai-2026/task1-Tripletex
+cd ~/nm-ai-2026-1/task1-Tripletex
 pip install -r requirements.txt
 pytest tests/test_agent.py -v
 ```
 
-## 9. Sandbox smoke test — deployed agent
-
-```bash
-# Employee create
-curl -X POST https://tripletex-agent-997219197351.europe-north1.run.app/solve \
-  -H "Content-Type: application/json" \
-  -d '{
-    "prompt": "Opprett en ansatt med navn Ola Nordmann, epost ola@example.com",
-    "tripletex_credentials": {
-      "base_url": "https://kkpqfuj-amager.tripletex.dev/v2",
-      "session_token": "eyJ0b2tlbklkIjoyMTQ3NjQ1MzAzLCJ0b2tlbiI6ImI3YzQ3Y2E0LTM0ZDgtNGYyZi1iMGU2LWZiMDc1NmJjODBhNyJ9"
-    }
-  }'
-```
+14 tests, all passing (as of PR #12).
