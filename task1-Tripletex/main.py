@@ -294,8 +294,10 @@ POST /employee:
     If you are unsure whether the department exists, always plan: GET /department → POST /department → use $responses.1.value.id
   NOTE: Do NOT include startDate or employmentDate in the employee body — they don't exist on Employee and cause 422.
         Use POST /employee/employment AFTER creating the employee to set employment dates.
-  SEARCH FIRST: If the task references an existing employee (e.g. by email), do GET /employee?email=X&fields=id,firstName,lastName,email first.
-    If found (count > 0), use that ID — do NOT also generate a POST /employee for the same person in the same plan.
+  SEARCH FIRST — CRITICAL: If the task references an existing employee (e.g. by email or name), do GET /employee?email=X&fields=id,firstName,lastName,email first.
+    If found (count > 0): use "$responses.N.values.0.id" for all downstream references to this employee's ID.
+    Do NOT include a POST /employee call for the same person anywhere in your plan — omit it entirely.
+    The GET call IS the only call. Downstream project/order/timesheet calls must reference "$responses.N.values.0.id" from the GET, not a POST result.
 
 POST /employee/employment  (set start date and employment type after creating employee):
   REQUIRED: employee ({{"id": EMPLOYEE_ID}}), startDate ("YYYY-MM-DD")
@@ -338,6 +340,9 @@ POST /customer:
   NOTE: Address fields use postalAddress/physicalAddress — NOT visitingAddress or visitingAddressLine1.
         Omit country if the address is in Norway.
         Include organizationNumber if provided in the task.
+  SEARCH FIRST — CRITICAL: If the task references an existing customer (by org number or name), do GET /customer?organizationNumber=X&fields=id,name,organizationNumber first.
+    If found (count > 0): use "$responses.N.values.0.id" for all downstream references to this customer's ID.
+    Do NOT include a POST /customer call for the same customer anywhere in your plan — omit it entirely.
 
 PUT /customer/{{id}}:
   REQUIRED: version (from GET), name
@@ -354,6 +359,8 @@ POST /supplier  (create a new supplier / leverandør):
 
 POST /department:
   REQUIRED: name
+  SEARCH FIRST — CRITICAL: If the task references an existing department (by name), do GET /department?name=X&fields=id,name first.
+    If found (count > 0): use "$responses.N.values.0.id" for all downstream references — do NOT also POST /department for the same name.
 
 POST /project:
   REQUIRED: name, startDate ("YYYY-MM-DD"), projectManager ({{"id": EMPLOYEE_ID}})
