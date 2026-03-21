@@ -2,7 +2,7 @@
 
 > NM i AI 2026 — Task 2 handoff/control file
 > Last updated: 2026-03-21 (Saturday, Oslo)
-> Status: v1 implemented, merged to `main` via PR #19. Next priority is live validation and production run readiness.
+> Status: local authenticated live smoke completed on Round 16 with successful 5/5 submissions. Fast reliability fixes applied for floor enforcement and stale submit errors.
 
 ---
 
@@ -106,10 +106,9 @@ gcloud run deploy astar-operator \
 
 ## 5. Known Gaps To Address Next
 
-1. Full live end-to-end test against active round still pending.
-2. Cloud Run live smoke test still pending for task2 service.
-3. Planner is heuristic baseline; post-round calibration may improve leaderboard upside.
-4. No integration tests for API client/service flow yet (only core unit tests).
+1. Cloud Run live smoke test still pending for task2 service.
+2. Planner is heuristic baseline; post-round calibration may improve leaderboard upside.
+3. No integration tests for API client/service flow yet (only core unit tests).
 
 ---
 
@@ -120,6 +119,8 @@ gcloud run deploy astar-operator \
 3. Keep probability-floor protections.
 4. If changing payload shape logic, re-run validation tests and add new tests.
 5. Update both `task2-Astar/AGENT.md` and `task2-Astar/PROGRESS.md` after meaningful changes.
+6. When syncing organizer docs through MCP, fetch each resource with retries and a fresh `initialize` session per resource to avoid intermittent `Session not found` failures.
+7. Treat organizer docs as canonical, but sanitize obvious upstream artifacts/noise before saving local copies.
 
 ---
 

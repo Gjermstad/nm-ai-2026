@@ -23,11 +23,53 @@ def clamp_viewport(x: int, y: int, w: int, h: int, width: int, height: int) -> T
 
 
 def normalize_with_floor(values: Sequence[float], floor: float = 0.01) -> List[float]:
-    floored = [max(float(v), floor) for v in values]
-    total = sum(floored)
+    n = len(values)
+    if n == 0:
+        return []
+    if floor < 0:
+        floor = 0.0
+    if floor * n >= 1.0:
+        return [1.0 / n] * n
+
+    # Start with a regular normalization.
+    clipped = [max(float(v), 0.0) for v in values]
+    total = sum(clipped)
     if total <= 0:
-        return [1.0 / 6.0] * 6
-    return [v / total for v in floored]
+        probs = [1.0 / n] * n
+    else:
+        probs = [v / total for v in clipped]
+
+    # Enforce a strict per-class floor while preserving sum=1.
+    while True:
+        low = [i for i, p in enumerate(probs) if p < floor]
+        if not low:
+            break
+
+        high = [i for i in range(n) if i not in low]
+        fixed_mass = floor * len(low)
+        remaining = max(0.0, 1.0 - fixed_mass)
+
+        for i in low:
+            probs[i] = floor
+
+        if not high:
+            break
+
+        high_mass = sum(probs[i] for i in high)
+        if high_mass <= 0:
+            share = remaining / len(high)
+            for i in high:
+                probs[i] = share
+        else:
+            scale = remaining / high_mass
+            for i in high:
+                probs[i] *= scale
+
+    # Final tiny numerical correction.
+    s = sum(probs)
+    if s > 0:
+        probs = [p / s for p in probs]
+    return probs
 
 
 def entropy(probs: Sequence[float]) -> float:

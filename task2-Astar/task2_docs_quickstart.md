@@ -2,9 +2,9 @@
 
 ## Authentication
 
-All endpoints require authentication. Log in at `app.ainm.no`, then inspect cookies in your browser to grab your `access_token` `JWT`.
+All endpoints require authentication. Log in at app.ainm.no, then inspect cookies in your browser to grab your `access_token` JWT.
 
-You can authenticate using either a cookie or a `Bearer` token header:
+You can authenticate using either a cookie or a Bearer token header:
 
 ```python
 import requests
@@ -51,7 +51,7 @@ for i, state in enumerate(detail["initial_states"]):
 
 ## Step 3: Query the Simulator
 
-You have `50` queries per round, shared across all seeds. Each query reveals a `5-15` cell wide viewport:
+You have 50 queries per round, shared across all seeds. Each query reveals a 5-15 cell wide viewport:
 
 ```python
 result = session.post(f"{BASE}/astar-island/simulate", json={
@@ -70,7 +70,7 @@ viewport = result["viewport"]        # {x, y, w, h}
 
 ## Step 4: Build and Submit Predictions
 
-For each seed, submit a `height x width x 6` probability tensor. Each cell has `6` values representing the probability of each terrain class (`Empty`, `Settlement`, `Port`, `Ruin`, `Forest`, `Mountain`). They must sum to `1.0`:
+For each seed, submit a `height x width x 6` probability tensor. Each cell has 6 values representing the probability of each terrain class (Empty, Settlement, Port, Ruin, Forest, Mountain). They must sum to 1.0:
 
 ```python
 import numpy as np
@@ -89,13 +89,13 @@ for seed_idx in range(seeds):
     print(f"Seed {seed_idx}: {resp.status_code}")
 ```
 
-A uniform prediction scores `~1-5`. Use your queries to build better predictions.
+A uniform prediction scores ~1-5. Use your queries to build better predictions.
 
-> Warning: Never assign probability `0.0` to any class. If the ground truth has any non-zero probability for a class you marked as zero, `KL` divergence becomes infinite and your score for that cell is destroyed. Always enforce a minimum floor (e.g. `0.01`) and renormalize. See the scoring docs for details.
+> **Warning:** Never assign probability 0.0 to any class. If the ground truth has any non-zero probability for a class you marked as zero, KL divergence becomes infinite and your score for that cell is destroyed. Always enforce a minimum floor (e.g., 0.01) and renormalize. See the [scoring docs](/docs/astar-island/scoring.md#common-pitfalls) for details.
 
 ## Using the MCP Server
 
-Add the documentation server to `Claude Code` for AI-assisted development:
+Add the documentation server to Claude Code for AI-assisted development:
 
 ```bash
 claude mcp add --transport http nmiai https://mcp-docs.ainm.no/mcp

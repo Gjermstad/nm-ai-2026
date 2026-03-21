@@ -488,7 +488,10 @@ class AstarService:
     def _run_query_cycle_if_needed(self) -> None:
         if not self.api.access_token:
             with self._lock:
-                self._set_error("Missing ASTAR_ACCESS_TOKEN", "Set ASTAR_ACCESS_TOKEN and restart")
+                self._set_error(
+                    "Missing ASTAR_ACCESS_TOKEN",
+                    "Set ASTAR_ACCESS_TOKEN (env) or use /auth/token; run will resume automatically",
+                )
             return
 
         with self._lock:
@@ -718,6 +721,8 @@ class AstarService:
             seed["submitted"] = True
             seed["submitted_at"] = iso_now()
             seed["submit_status"] = "submitted"
+            if isinstance(self.state.get("last_error"), str) and self.state["last_error"].startswith("Submit failed"):
+                self._clear_error()
             self._persist_state()
 
         self.logs.add("info", "submit_ok", "Seed submitted", seed_index=seed_index, reason=reason)
@@ -819,6 +824,8 @@ class AstarService:
         self.api.set_access_token(token)
         with self._lock:
             self.state["token_present"] = bool(token)
+            if token and self.state.get("last_error") == "Missing ASTAR_ACCESS_TOKEN":
+                self._clear_error()
             self._persist_state()
         self.logs.add("info", "token_set", "Access token updated", present=bool(token))
         return {"token_present": bool(token)}
