@@ -381,6 +381,24 @@ Issue credit note (kreditnota / kreditfaktura):
   Example call: {{"method": "PUT", "endpoint": "/invoice/$responses.0.values.0.id/:createCreditNote",
     "params": {{"date": "{today}", "sendToCustomer": "false"}}}}
 
+Supplier invoice (leverandørfaktura / fatura do fornecedor):
+  Endpoint: POST /supplierInvoice (NOT /supplier/invoice — that returns 405)
+  REQUIRED: supplier ({{"id": ID}}), invoiceDate ("YYYY-MM-DD"), invoiceDueDate ("YYYY-MM-DD"), invoiceNumber ("...")
+  Optional: comment, invoiceLines: [{{"account": {{"id": ACCT_ID}}, "amount": <number>, "description": "..."}}]
+  Flow: GET /supplier?organizationNumber=X → POST /supplierInvoice
+  Use GET /ledger/account to look up account IDs if the task specifies an account number.
+
+Travel expense costs (reiseutgifter / gastos de viaje):
+  Step 1: POST /travelExpense — creates the header (employee, title, dates).
+  Step 2 (if individual expenses mentioned — flights, taxi, hotel, etc.):
+    POST /travelExpense/cost — add each receipt/cost line
+    body: {{"travelExpense": {{"id": "$responses.0.value.id"}}, "category": {{"id": 1}}, "amount": <number>}}
+    NOTE: "category" refers to cost category ID (1=flight, 2=taxi/ground, etc.) — use best guess if unknown.
+  Step 3 (if per diems / daily allowances mentioned):
+    POST /travelExpense/perDiem is not directly available — per diems are typically configured automatically.
+    Instead, note the per diem amount in the travelExpense title or comment field.
+  DO NOT try to add per diems as separate API calls — create the travelExpense header and individual cost lines only.
+
 Ledger voucher (bilag):
   POST /ledger/voucher
   body: {{"date": "YYYY-MM-DD", "description": "...", "vouchers": [{{"account": {{"id": ACCT_ID}}, "amount": 0}}]}}
@@ -520,6 +538,10 @@ async def solve(req: SolveRequest):
         logger.error("Could not parse a valid plan after retry. Giving up.")
         return {"status": "completed"}
 
+    # Gemini sometimes returns a raw array instead of {"calls": [...]}
+    if isinstance(plan, list):
+        plan = {"calls": plan}
+
     calls = plan.get("calls", [])
     logger.info("Plan has %d API calls", len(calls))
 
@@ -534,6 +556,8 @@ async def solve(req: SolveRequest):
         try:
             raw_repair   = call_llm(repair_prompt, deadline)
             repair_plan  = extract_json(raw_repair)
+            if isinstance(repair_plan, list):
+                repair_plan = {"calls": repair_plan}
             if repair_plan:
                 repair_calls = repair_plan.get("calls", [])
                 logger.info("Repair plan has %d calls", len(repair_calls))

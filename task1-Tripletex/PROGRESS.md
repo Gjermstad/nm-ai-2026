@@ -93,6 +93,10 @@ Note on T1/T2: the leaderboard columns T1/T2/T3 are the three competition tasks 
 | 12 | Create departments "Drift", "Logistikk", "IT" (Portuguese) | ✅ 7/7 | 8/8 | 1 | — |
 | 13 | Create and SEND invoice to Stormberg AS, 31250 NOK, Opplæring (Norwegian) | ❌ 0/7 | 0/8 | 2 | Bank account 422 on `PUT /order/:invoice` — validator env issue |
 | 14 | Invoice Sierra SL: 3 lines, 25%/15%/0% VAT (Spanish) | ❌ 0/8 | 0/8 | 2 | `GET /vat/type` → 404 (doesn't exist); Gemini used JSONPath `[?(@.percentage==25.0)]` which is unsupported → literal string → 422. Fixed PR #15: hardcode IDs 3/5/omit, block JSONPath |
+| 15 | Travel expense for Pablo Rodríguez "Conferencia Ålesund", 5 days per diems + flight + taxi (Spanish) | ⚠️ 2/8 | 2/8 | 2 | Header created ✓; missed individual cost lines (flight 2750, taxi 700). Fixed PR #16: add POST /travelExpense/cost |
+| 16 | Set fixed price 324900 NOK on project "Migração para nuvem", invoice 50% milestone, PM Tiago Santos (Portuguese) | ❌ 0/8 | 0/8 | 3 | Gemini returned raw JSON array `[...]` → crash `AttributeError: list has no .get`. Fixed PR #16: wrap list in dict |
+| 17 | Invoice Bergwerk GmbH: 3 lines, 25%/15%/0% VAT (German) | ❌ 0/8 | 0/8 | 2 | Order created ✓ (vatType fix working); invoice 422 bank account env issue |
+| 18 | Supplier invoice INV-2026-4811 from Montanha Lda 33200 NOK incl. VAT, account 7300 (Portuguese) | ❌ 0/8 | 0/8 | 2 | `POST /supplier/invoice` → 405; correct endpoint is `POST /supplierInvoice`. Fixed PR #16 |
 
 **Patterns observed:**
 - Credit notes on existing invoices → works perfectly ✅
