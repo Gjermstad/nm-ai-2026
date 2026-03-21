@@ -1,0 +1,263 @@
+:root {
+  --bg: #0d1324;
+  --bg-soft: #121d35;
+  --panel: #16223e;
+  --line: #30456f;
+  --text: #e7edf8;
+  --muted: #9fb2d7;
+  --accent: #27b48f;
+  --warning: #dba645;
+  --danger: #dc5a63;
+  --seed0: #d8c58f;
+  --seed1: #e79328;
+  --seed2: #2ca9d0;
+  --seed3: #be3a3f;
+  --seed4: #388b47;
+  --seed5: #8f95aa;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  color: var(--text);
+  background: radial-gradient(circle at 20% 20%, #1a2d58 0%, var(--bg) 60%);
+  font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 16px;
+  background: rgba(13, 19, 36, 0.95);
+  border-bottom: 1px solid var(--line);
+  backdrop-filter: blur(6px);
+}
+
+.brand {
+  font-weight: 700;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tab-btn {
+  border: 1px solid var(--line);
+  background: var(--bg-soft);
+  color: var(--text);
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.tab-btn.active {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.tab-btn.disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+main {
+  padding: 16px;
+}
+
+.tab-panel {
+  display: none;
+}
+
+.tab-panel.active {
+  display: block;
+}
+
+.grid {
+  display: grid;
+  gap: 12px;
+}
+
+.cards {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.two-col {
+  grid-template-columns: minmax(420px, 2fr) minmax(280px, 1fr);
+  align-items: start;
+}
+
+.card {
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(19, 31, 58, 0.95), rgba(16, 25, 47, 0.95));
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.metric {
+  font-size: 1.45rem;
+  font-weight: 700;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.mono {
+  font-family: "IBM Plex Mono", "Menlo", monospace;
+  white-space: pre-wrap;
+  line-height: 1.3;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.wrap {
+  flex-wrap: wrap;
+}
+
+button,
+select,
+input {
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--bg-soft);
+  color: var(--text);
+  padding: 7px 10px;
+}
+
+button {
+  cursor: pointer;
+}
+
+button.primary {
+  background: linear-gradient(180deg, #0f6f90, #0b4f6f);
+  border-color: #1ca0be;
+}
+
+.token-label {
+  min-width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+#token-input {
+  width: min(560px, 70vw);
+}
+
+#seed-summary-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+#seed-summary-table td,
+#seed-summary-table th {
+  border-bottom: 1px solid var(--line);
+  padding: 6px;
+  text-align: left;
+  font-size: 0.9rem;
+}
+
+.seed-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.seed-tab {
+  border: 1px solid var(--line);
+  background: var(--bg-soft);
+}
+
+.seed-tab.active {
+  border-color: var(--accent);
+}
+
+#seed-canvas {
+  width: min(92vw, 620px);
+  height: min(92vw, 620px);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  image-rendering: pixelated;
+  background: #0b1223;
+}
+
+.logs {
+  max-height: 62vh;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.log-item {
+  border-bottom: 1px solid rgba(48, 69, 111, 0.5);
+  padding: 5px 0;
+}
+
+.log-item:last-child {
+  border-bottom: 0;
+}
+
+.alert {
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 12px;
+  border: 1px solid var(--danger);
+  background: rgba(220, 90, 99, 0.15);
+}
+
+.alert.hidden {
+  display: none;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-size: 0.75rem;
+}
+
+.pill.safe {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.pill.warning {
+  border-color: var(--warning);
+  color: var(--warning);
+}
+
+.pill.critical {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.seed-submit-card {
+  min-height: 180px;
+}
+
+@media (max-width: 1050px) {
+  .two-col {
+    grid-template-columns: 1fr;
+  }
+}
