@@ -399,6 +399,8 @@ POST /project:
   REQUIRED: name, startDate ("YYYY-MM-DD"), projectManager ({{"id": EMPLOYEE_ID}})
   If no project manager is named in the task: do GET /employee?fields=id,firstName,lastName&count=1 first,
   then use "$responses.N.values.0.id" as projectManager.id. Do NOT hardcode id=1 — that is "Historisk ansatt" and causes 422.
+  Optional: customer ({{"id": CUSTOMER_ID}}) — ALWAYS include when the task says the project is "for" or "linked to" a customer.
+    To get the customer ID: GET /customer?organizationNumber=X or GET /customer?name=X first, then reference "$responses.N.values.0.id".
   NOTE: Do NOT include fixedPrice, contractSum, billingPlan, price, or any billing/pricing fields in POST /project — they do NOT exist on the project creation endpoint and cause 422.
     A fixed price cannot be set via the API (the endpoint to do so is BETA/403). Create the project normally, then proceed with order/invoice for partial credit.
 
