@@ -256,6 +256,7 @@ TODAY'S DATE: {today}
 
 POST /employee:
   REQUIRED: firstName, lastName, userType, email, department ({{"id": DEPT_ID}})
+  Optional: dateOfBirth ("YYYY-MM-DD") — include if the task mentions a birth date/date of birth.
   userType: "STANDARD" (default) | "EXTENDED" (administrator/kontoadministrator/admin) | "NO_ACCESS"
   department.id: ALWAYS do GET /department first (filter by name if a department is named in the task).
     CRITICAL: If GET /department returns count: 0 (department not found), you MUST create it first:
@@ -326,7 +327,7 @@ POST /order:
         "number": 1920,
         "name": "$responses.0.values.0.name",
         "isBankAccount": true,
-        "bankAccountNumber": "1234.56.78903"
+        "bankAccountNumber": "12345678903"
       }}
   Only after these two calls, proceed with GET /customer, POST /order, etc.
   Do NOT skip this step for any invoice flow — it is always required on a fresh account.
@@ -396,8 +397,13 @@ DELETE /travelExpense/{{id}}:
 Register invoice payment (betaling på faktura):
   All parameters are QUERY PARAMS — there is no request body for this endpoint.
   Step 1: GET /invoice — REQUIRED params: invoiceDateFrom="2000-01-01", invoiceDateTo="{today}"
-    Optional filter params: customer.id, amountCurrency, fields="id,invoiceNumber,amountCurrency"
+    Optional filter params: customer.id, fields="id,invoiceNumber,amountCurrency,amountExcludingVatCurrency"
     CRITICAL: invoiceDateFrom and invoiceDateTo are ALWAYS required — omitting them causes 422.
+    NOTE: The server does NOT filter by amountCurrency or amountExcludingVatCurrency — it may return ALL invoices.
+    If multiple invoices are returned, select the correct index by matching the amount in the task:
+      values.0 = lowest invoiceNumber (oldest), values.1 = second oldest, etc.
+      If the task specifies an excl. VAT amount, check values[N].amountExcludingVatCurrency to pick the right index.
+      Use "$responses.N.values.1.id" for the second invoice, "$responses.N.values.0.id" for the first.
   Step 2: PUT /invoice/$responses.0.values.0.id/:payment
     REQUIRED query params: paymentDate=YYYY-MM-DD, paymentTypeId=1, paidAmount=<number>
     Use placeholder for amount: "paidAmount": "$responses.0.values.0.amountCurrency"
@@ -445,10 +451,14 @@ The following endpoints return 404 or 405 and must never be called:
   If a task asks to create a custom accounting dimension or link a voucher to a dimension:
     - Skip the dimension creation entirely
     - Post the voucher on the correct account without any dimension reference
-  GET /vat/type                    → 404. Use hardcoded vatType IDs instead.
-  POST /supplier/invoice           → 405. Use POST /ledger/voucher instead.
-  POST /invoice/fromTimesheet      → 405.
-  POST /timesheet (without /entry) → 404. Use POST /timesheet/entry.
+  GET /vat/type                          → 404. Use hardcoded vatType IDs instead.
+  POST /supplier/invoice                 → 405. Use POST /ledger/voucher instead.
+  POST /invoice/fromTimesheet            → 405.
+  POST /timesheet (without /entry)       → 404. Use POST /timesheet/entry.
+  PUT /invoice/{{id}}/:reversePayment    → 404. Does NOT exist.
+  If a task asks to reverse a bank return (bankretur) so the invoice shows as outstanding again:
+    Use PUT /invoice/$responses.N.values.0.id/:createCreditNote to reverse, then re-invoice if needed.
+    Or post a corrective ledger voucher. Do NOT use :reversePayment.
 
 === BETA ENDPOINTS — NEVER USE (returns 403 Forbidden) ===
 The following endpoints are tagged [BETA] in the Tripletex API and will always return 403.
