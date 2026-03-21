@@ -381,6 +381,12 @@ Issue credit note (kreditnota / kreditfaktura):
   Example call: {{"method": "PUT", "endpoint": "/invoice/$responses.0.values.0.id/:createCreditNote",
     "params": {{"date": "{today}", "sendToCustomer": "false"}}}}
 
+Supplier invoice (leverandørfaktura / fatura do fornecedor):
+  NOTE: The Tripletex API does NOT have a POST endpoint for creating supplier invoices.
+  If a task asks to register a supplier invoice, record it as a ledger voucher instead (POST /ledger/voucher).
+  Do NOT call POST /supplier/invoice (405) or POST /supplierInvoice (does not exist).
+  Use GET /supplier to look up the supplier, GET /ledger/account for the account, then POST /ledger/voucher.
+
 Ledger voucher (bilag):
   POST /ledger/voucher
   body: {{"date": "YYYY-MM-DD", "description": "...", "vouchers": [{{"account": {{"id": ACCT_ID}}, "amount": 0}}]}}
@@ -398,6 +404,7 @@ Do NOT generate calls to any of these — they will always fail:
   DELETE /project/{{id}}           → BETA, always 403. Cannot delete projects via API.
   PUT /order/orderline/{{id}}      → BETA, always 403. Cannot update order lines via API.
   DELETE /order/orderline/{{id}}   → BETA, always 403. Cannot delete order lines via API.
+  POST /travelExpense/cost         → BETA, always 403. Cannot add individual expense cost lines via API.
 If the task asks you to do something only possible via a BETA endpoint, skip that action entirely.
 
 === PLACEHOLDER SYNTAX ===
@@ -520,6 +527,10 @@ async def solve(req: SolveRequest):
         logger.error("Could not parse a valid plan after retry. Giving up.")
         return {"status": "completed"}
 
+    # Gemini sometimes returns a raw array instead of {"calls": [...]}
+    if isinstance(plan, list):
+        plan = {"calls": plan}
+
     calls = plan.get("calls", [])
     logger.info("Plan has %d API calls", len(calls))
 
@@ -534,6 +545,8 @@ async def solve(req: SolveRequest):
         try:
             raw_repair   = call_llm(repair_prompt, deadline)
             repair_plan  = extract_json(raw_repair)
+            if isinstance(repair_plan, list):
+                repair_plan = {"calls": repair_plan}
             if repair_plan:
                 repair_calls = repair_plan.get("calls", [])
                 logger.info("Repair plan has %d calls", len(repair_calls))

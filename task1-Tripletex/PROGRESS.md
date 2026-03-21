@@ -93,6 +93,10 @@ Note on T1/T2: the leaderboard columns T1/T2/T3 are the three competition tasks 
 | 12 | Create departments "Drift", "Logistikk", "IT" (Portuguese) | ✅ 7/7 | 8/8 | 1 | — |
 | 13 | Create and SEND invoice to Stormberg AS, 31250 NOK, Opplæring (Norwegian) | ❌ 0/7 | 0/8 | 2 | Bank account 422 on `PUT /order/:invoice` — validator env issue |
 | 14 | Invoice Sierra SL: 3 lines, 25%/15%/0% VAT (Spanish) | ❌ 0/8 | 0/8 | 2 | `GET /vat/type` → 404 (doesn't exist); Gemini used JSONPath `[?(@.percentage==25.0)]` which is unsupported → literal string → 422. Fixed PR #15: hardcode IDs 3/5/omit, block JSONPath |
+| 15 | Travel expense for Pablo Rodríguez "Conferencia Ålesund", 5 days per diems + flight + taxi (Spanish) | ⚠️ 2/8 | 2/8 | 2 | Header created ✓; individual costs (flight, taxi) not added — `POST /travelExpense/cost` is BETA (403) |
+| 16 | Set fixed price 324900 NOK on project "Migração para nuvem", invoice 50% milestone, PM Tiago Santos (Portuguese) | ❌ 0/8 | 0/8 | 3 | Gemini returned raw JSON array `[...]` → crash `AttributeError: list has no .get`. Fixed PR #16: wrap list in dict |
+| 17 | Invoice Bergwerk GmbH: 3 lines, 25%/15%/0% VAT (German) | ❌ 0/8 | 0/8 | 2 | Order created ✓ (vatType fix working); invoice 422 bank account env issue |
+| 18 | Supplier invoice INV-2026-4811 from Montanha Lda 33200 NOK incl. VAT, account 7300 (Portuguese) | ❌ 0/8 | 0/8 | 2 | `POST /supplier/invoice` → 405; `POST /supplierInvoice` also does not exist. Fallback: ledger voucher |
 
 **Patterns observed:**
 - Credit notes on existing invoices → works perfectly ✅
@@ -102,6 +106,33 @@ Note on T1/T2: the leaderboard columns T1/T2/T3 are the three competition tasks 
 - `params` placeholders (e.g. `paidAmount: "$responses.N.value.amountCurrency"`) were never resolved → fixed in PR #12
 - Repair pass using `"path"` or `"url"` instead of `"endpoint"` → fixed in PR #11
 - `POST /customer` address fields: `postalAddress`/`physicalAddress` (not `visitingAddress`) → fixed in PR #13
+
+## 10. Endpoint verification status
+
+Verified working (seen 201/200 in logs):
+- `GET /customer`, `GET /employee`, `GET /project`, `GET /department`, `GET /activity`
+- `POST /customer`, `POST /employee`, `POST /department`, `POST /project`, `POST /order`, `POST /product`
+- `POST /travelExpense`, `PUT /travelExpense/{id}`, `DELETE /travelExpense/{id}`
+- `PUT /order/{id}/:invoice`, `PUT /invoice/{id}/:payment`, `PUT /invoice/{id}/:createCreditNote`
+- `GET /invoice` (requires `invoiceDateFrom`/`invoiceDateTo`), `GET /ledger/account`, `GET /supplier`
+- `POST /ledger/voucher`
+
+Verified NOT working (confirmed from logs):
+- `GET /vat/type` → 404 (endpoint does not exist)
+- `POST /supplier/invoice` → 405
+- `POST /invoice/fromTimesheet` → 405
+- `POST /timesheet` (no `/entry`) → 404
+- `POST /timeSheet` (capital S) → 404
+
+BETA (returns 403 in validator environment):
+- `PUT /project/{id}`, `DELETE /project/{id}`, `DELETE /customer/{id}`
+- `PUT /order/orderline/{id}`, `DELETE /order/orderline/{id}`
+- `POST /travelExpense/cost` (confirmed BETA via API spec)
+
+Unverified / uncertain (not yet attempted in validator):
+- `POST /supplierInvoice` — likely does not exist for creation; use `POST /ledger/voucher` instead
+- `POST /timesheet/entry` — correct per API spec, not yet confirmed in validator logs
+- `GET /activity` — correct per API spec, not yet confirmed in validator logs
 - Order→invoice→payment: paidAmount should use `$responses.N.value.amountCurrency` placeholder → fixed in PR #13
 
 ## 6. What still needs to be done
