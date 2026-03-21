@@ -34,7 +34,7 @@ Primary objective now is not architecture redesign. Primary objective is to vali
 Implemented components:
 - Backend service: `main.py`, `backend.py`, `core.py`
 - UI: `static/index.html`, `static/app.js`, `static/styles.css`
-- Docs: `SPEC.md`, `README.md`, `PROGRESS.md`
+- Docs: `SPEC.md`, `README.md`, `PROGRESS.md`, `PastRounds.md`
 - Tests: `tests/test_core.py` (9 passing)
 
 Implemented internal endpoints:
@@ -58,6 +58,7 @@ Run this exact order:
 1. Read these files in order:
    - `task2-Astar/AGENT.md`
    - `task2-Astar/PROGRESS.md`
+   - `task2-Astar/PastRounds.md`
    - `task2-Astar/SPEC.md`
 2. Check hosted service first (`/health`, `/status`) and confirm active round + token present.
 3. If hosted is unhealthy, start app locally as fallback and verify UI loads.
@@ -65,6 +66,9 @@ Run this exact order:
 5. Rebuild draft and verify all seed validations are ready.
 6. Submit one seed manually, then submit all seeds.
 7. Final verify: `submitted_count=5/5`, `run_enabled=false`, `last_error=null`.
+
+Screenshot source for post-round analysis:
+- `task2-Astar/screenshots/` (expected naming: `Round1X_overview.png`, `Round1X_SeedY_a.png`, `Round1X_SeedY_b.png`)
 
 ---
 
@@ -231,6 +235,7 @@ curl -sS "$BASE/status"
 9. Assume merged PRs are closed; create a fresh branch + new PR for follow-up commits (do not reuse prior merged PR).
 10. Do not block the session by waiting in long hold loops (for example, waiting at `48/50` until T-30m). Arm run mode and return control to operator.
 11. If operator says to wait before submitting, do not execute submit endpoints until explicit go-ahead.
+12. Ingest all newly added round screenshots from `task2-Astar/screenshots/` into `task2-Astar/PastRounds.md` before making new model-tuning choices.
 
 ---
 
@@ -238,4 +243,4 @@ curl -sS "$BASE/status"
 
 Use this when starting a new session:
 
-"Continue Task 2 Astar from `task2-Astar`. Read `AGENT.md`, `PROGRESS.md`, and `SPEC.md` first. Then check hosted `/status` and optimize live round operations without long blocking waits: run to ~40, rebuild+submit baseline, keep run enabled, and re-check near deadline for final lock-in. Respect operator preferences: never reuse merged PRs, and never submit when asked to wait. Report `queries.used/max`, `submitted_count`, `run_enabled`, `deadline_guard_enabled`, `last_error`, and `seconds_to_close`."
+"Continue Task 2 Astar from `task2-Astar`. Read `AGENT.md`, `PROGRESS.md`, `PastRounds.md`, and `SPEC.md` first. If new files exist in `task2-Astar/screenshots/`, ingest them into `PastRounds.md` before proposing model tuning. Then check hosted `/status` and optimize live round operations without long blocking waits: run to ~40, rebuild+submit baseline, keep run enabled, and re-check near deadline for final lock-in. Respect operator preferences: never reuse merged PRs, and never submit when asked to wait. Report `queries.used/max`, `submitted_count`, `run_enabled`, `deadline_guard_enabled`, `last_error`, and `seconds_to_close`."
