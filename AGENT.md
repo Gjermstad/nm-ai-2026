@@ -12,6 +12,11 @@
 - When coding keep variable names and code readable for humans. Use rather full words than shortening them.
 - Comment effectively so it is possible for a human to read what is going on in the code.
 - Every time you have made changes, update AGENT.md and PROGRESS.md in the folder for the task so they don't fall behind and get outdated.
+- **At the start of every session, verify the branch/worktree is current with main.**
+  Run `git log --oneline -5 main` and `git log --oneline -5 HEAD` and compare the tip commits.
+  If HEAD is behind main, do NOT make changes on the stale branch — create a fresh branch from
+  `origin/main` instead. Multiple sessions run in parallel and merge PRs continuously, so
+  worktrees go stale fast. A stale branch = guaranteed merge conflicts on the PR.
 - During the competition we have access to a GCP account with no limit.
   - Google Cloud is an official partner of NM i AI 2026. Selected teams receive a free @gcplab.me account with a dedicated GCP project — no credit limits, no billing setup (we are one of those selected teams).
     - Cloud Run, Vertex AI, Compute Engine

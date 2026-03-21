@@ -19,6 +19,11 @@
 - **Always assume I merged your PR** before I submit new log data to you. Create a new PR each time.
 - **After every PR**, give me the deploy commands (pull + deploy) and the submit URL at the bottom so I don't have to scroll up.
 - **I always create the PR merge myself** — don't merge PRs programmatically.
+- **At the start of every session, verify the branch/worktree is current with main.**
+  Run `git log --oneline -5 main` and `git log --oneline -5 HEAD` and compare the tip commits.
+  If HEAD is behind main, do NOT make changes on the stale branch — create a fresh branch from
+  `origin/main` instead. Multiple sessions run in parallel and merge PRs continuously, so
+  worktrees go stale fast. A stale branch = guaranteed merge conflicts on the PR.
 
 ### Answer format
 - Be concise. Lead with the fix, not the reasoning.
