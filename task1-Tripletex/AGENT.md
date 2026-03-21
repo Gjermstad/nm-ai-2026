@@ -1,7 +1,7 @@
 # AGENT.md — Task 1: Tripletex AI Accounting Agent
 > NM i AI 2026 — Solo competitor, frontend student (Kristiania, 6th semester)
-> Last updated: 2026-03-21 ~17:00 CET
-> Status: PR #18 merged. Deployment is STALE — must `git pull && deploy` from `~/nm-ai-2026-1`.
+> Last updated: 2026-03-21 ~20:00 CET
+> Status: PR #22 ready to merge. All previous PRs (#19, #20, #21) merged and deployed.
 
 ---
 
@@ -269,19 +269,26 @@ cd ~/nm-ai-2026-1/task1-Tripletex && gcloud run deploy tripletex-agent --source 
 
 ---
 
-## 11. WHAT TO DO NEXT (as of March 21 ~18:00 CET)
+## 11. WHAT TO DO NEXT (as of March 21 ~20:00 CET)
 
 ### Immediate
-1. **Commit and push PR #19** — fixes critical `"vouchers"` → `"postings"` bug in `POST /ledger/voucher`; increases MAX_CALLS 12→16
-2. **Redeploy** from `~/nm-ai-2026-1` after push
-3. **Submit repeatedly** — confirm year-end depreciation task now works
+1. **Merge and deploy PR #22** — critical voucher row 0 fix; also SEARCH FIRST for entities, activity fallback
+2. **Submit repeatedly** — 29/30 task types seen; focus on improving scores on failing tasks
 
-### Confirmed new task types (Tier 3, seen today)
-- #23: Year-end closing / depreciation booking (årsoppgjør) — multiple vouchers per asset
-- #24: Ledger error correction (find + fix 4 errors) — always 403 on first call (env issue?)
-- #25: Travel expense with per diems + flight + taxi — same as #15, BETA cost lines
+### New task types seen (March 21 evening)
+- #27: Receipt expense from PDF (Spanish) — voucher with expense account + VAT from receipt
+- #28: FX payment + disagio voucher (German) — register payment + FX loss voucher (account 8160)
+- #29: Full project lifecycle (English) — employees + timesheet + supplier cost + invoice
 
-### Known fixes pending
-4. **Employee + employment sub-resource** — if "set start date" tasks come back
-5. **GET /project with customer filter** — for project lookup in timesheet flows
-6. **POST /timesheet/entry** — not yet confirmed in validator logs
+### What PR #22 fixes
+- **Voucher row 0**: each posting must have `"row": N` starting from 1 (row 0 = system-generated = 422)
+- **VAT account posting**: don't add account 2710 manually; use vatType on expense line instead
+- **Duplicate entity creation**: SEARCH FIRST for employees/customers/suppliers before creating
+- **Activity fallback**: if not found by name, list all activities and pick the most relevant
+- **Named call IDs**: prohibited (only numeric response indices supported)
+- **GET /account**: prohibited (must use GET /ledger/account)
+
+### Known issues (unfixable)
+- INT32_MAX payment overflow (task #28 payment step, task #8) — validator env bug
+- 403 session token expiry (task #24) — validator env bug
+- BETA endpoints (travel expense costs) — task #15, #25 capped at 2/8

@@ -61,17 +61,22 @@ A Hybrid Repair agent is deployed to Cloud Run. PR #18 deployed and confirmed wo
 | 24 | Ledger error correction — find and fix 4 accounting errors (Portuguese) | ❌ 0/? | 3 | 403 on first call (expired session token — validator env issue). Unfixable. |
 | 25 | Travel expense with per diems + flight + taxi (German) | ⚠️ 2/8 | 2 | Same as #15: header ✅, POST /travelExpense/cost BETA → 403. Unfixable. |
 | 26 | Custom accounting dimension "Region" + voucher linked to dimension (English) | ❌ 0/13 | 3 | POST /accounting/dimension → 404. Dimension fields on postings also 422. Fixed PR #21: skip dimensions, post voucher without them. |
+| 27 | Receipt/expense from PDF: Kundemøte lunsj → register with correct account + VAT (Spanish, PDF) | ❌ 0/10 | 2 | Voucher 422: "postings at row 0 are system-generated". Fix PR #22: each posting must have `"row": N` starting from 1. Also VAT account (2710) must NOT be posted manually — use vatType on expense line instead. |
+| 28 | FX payment: invoice in EUR at 11.61 NOK/EUR, paid at 11.32 — register payment + disagio voucher (German) | ⚠️ 2/10 | 3 | Payment 404 (INT32_MAX invoice ID, unfixable). FX voucher 422 (row 0, fixed PR #22). Repair tried GET /account (wrong) instead of /ledger/account. Also FX loss = account 8160 (Valutatap), not 8060 (Valutagevinst). |
+| 29 | Full project lifecycle: create project, timesheet ×2 employees, supplier cost, customer invoice (English) | ⚠️ 2/11 | 3 | Employees existed but Gemini tried POST (422). Activity "Consulting" not found (count 0), POST /activity failed (activityType required). Project creation skipped. Fix PR #22: SEARCH FIRST for employees/suppliers/customers; fallback to listing all activities. |
 
 **Patterns observed:**
 - Credit notes on existing invoices → works ✅
 - Create project + assign PM → works ✅
 - Create departments → works ✅
-- New invoice creation → intermittently fails with bank account 422 (validator env), unfixable
+- Bank account setup (PUT /ledger/account/1920 with isBankAccount:true) → WORKS! Gemini doing this automatically. Invoice creation now succeeds where it used to fail (bank account 422).
 - Payment 404 for invoice IDs > INT32_MAX → unfixable (validator proxy overflow)
 - `GET /invoice` always requires `invoiceDateFrom` + `invoiceDateTo` — enforced in prompt (PR #12)
 - `POST /customer` address: must use `postalAddress`/`physicalAddress` (fixed PR #13)
 - Mixed VAT rates: hardcode IDs 3/5/omit — do NOT call GET /vat/type (fixed PR #15)
 - `POST /travelExpense/cost` is BETA (fixed PR #17)
+- `POST /ledger/voucher` postings MUST have `"row": N` (starting 1) — row 0 causes 422 (fixed PR #22)
+- Do NOT post to VAT accounts (2710, etc.) in vouchers — system-generated; use vatType on the posting instead (fixed PR #22)
 
 ---
 

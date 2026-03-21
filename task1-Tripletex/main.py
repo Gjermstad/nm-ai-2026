@@ -260,6 +260,8 @@ POST /employee:
   department.id: ALWAYS do GET /department first, use "$responses.0.values.0.id"
   NOTE: Do NOT include startDate or employmentDate in the employee body — these fields do not exist on
         the Employee object and cause 422. Employment dates belong to a separate sub-resource; omit them.
+  SEARCH FIRST: Before POST /employee, ALWAYS do GET /employee?email=X&fields=id,firstName,lastName,email.
+  If the employee is found (count > 0), use that ID — do NOT also generate a POST /employee for the same person.
 
 PUT /employee/{{id}}:
   REQUIRED: version (must come from GET response), firstName, lastName, userType, email, department
@@ -275,6 +277,8 @@ POST /customer:
   NOTE: Address fields use postalAddress/physicalAddress — NOT visitingAddress or visitingAddressLine1.
         Omit country if the address is in Norway.
         Include organizationNumber if provided in the task.
+  SEARCH FIRST: Use GET /customer?organizationNumber=X or GET /customer?name=X before creating.
+  If found (count > 0), use that ID — do NOT generate BOTH a GET and a POST for the same customer in one plan.
 
 PUT /customer/{{id}}:
   REQUIRED: version (from GET), name
@@ -288,6 +292,8 @@ POST /supplier  (create a new supplier / leverandør):
             physicalAddress ({{"addressLine1": "...", "postalCode": "...", "city": "..."}})
   NOTE: Use isSupplier: true (not isCustomer) when creating a supplier.
         Address fields: postalAddress/physicalAddress — NOT visitingAddress.
+  SEARCH FIRST: Use GET /supplier?organizationNumber=X or GET /supplier?name=X before creating.
+  If found (count > 0), use that ID — do NOT generate BOTH a GET and a POST for the same supplier in one plan.
 
 POST /department:
   REQUIRED: name
@@ -336,6 +342,8 @@ GET /activity:
   Lists available work activities (e.g. "Analyse", "Consulting", "Support"). Use to find activity ID for timesheet entries.
   Params: name="Analyse" (search by name), fields="id,name"
   Returns values[]: [{{"id": INT, "name": "..."}}]
+  FALLBACK: If count: 0 (activity not found by name), do GET /activity?fields=id,name (no name filter) to list ALL
+  available activities, then pick the most relevant one. Do NOT try to POST /activity to create a new one.
 
 POST /timesheet/entry  (log worked hours — NOT /timesheet or /timeSheet):
   REQUIRED: employee ({{"id": ID}}), project ({{"id": ID}}), activity ({{"id": ID}}), date ("YYYY-MM-DD"), hours (number)
@@ -400,13 +408,25 @@ Supplier invoice (leverandørfaktura / fatura do fornecedor):
 
 Ledger voucher (bilag):
   POST /ledger/voucher
-  body: {{"date": "YYYY-MM-DD", "description": "...", "postings": [{{"account": {{"id": ACCT_ID}}, "amount": NUMBER}}]}}
-  CRITICAL: The line-items array field is "postings" — NOT "vouchers". Using "vouchers" causes 422.
-  Each posting: {{"account": {{"id": INT}}, "amount": NUMBER}} where positive = debit, negative = credit.
-  Every voucher must balance (sum of all amounts = 0). Example depreciation entry:
-    {{"account": {{"id": EXPENSE_ACCOUNT_ID}}, "amount": 91175}},   <- debit expense account
-    {{"account": {{"id": ASSET_ACCOUNT_ID}},   "amount": -91175}}   <- credit asset/accumulated depreciation account
-  GET /ledger/account to find account IDs by number (e.g. params: {{"number": "1500", "fields": "id,number,name"}})
+  body: {{"date": "YYYY-MM-DD", "description": "...", "postings": [...]}}
+  CRITICAL: The array field is "postings" — NOT "vouchers". Using "vouchers" causes 422.
+  CRITICAL: Each posting MUST include "row" starting from 1 — row 0 is system-reserved and causes 422:
+    {{"row": 1, "account": {{"id": INT}}, "amount": NUMBER}}
+    {{"row": 2, "account": {{"id": INT}}, "amount": NUMBER}}
+  Positive = debit, negative = credit. Every voucher must balance (sum of all amounts = 0).
+  Do NOT manually post to VAT accounts (2710, 2706, 2740, etc.) — Tripletex generates those automatically.
+  For expense postings with VAT, include vatType on the expense line (Tripletex auto-creates the VAT split):
+    {{"row": 1, "account": {{"id": EXPENSE_ACCT_ID}}, "amount": GROSS_AMOUNT, "vatType": {{"id": 3}}}}
+    {{"row": 2, "account": {{"id": BANK_OR_PAYABLE_ACCT_ID}}, "amount": -GROSS_AMOUNT}}
+  Example depreciation entry (no VAT):
+    {{"row": 1, "account": {{"id": EXPENSE_ACCOUNT_ID}}, "amount": 91175}},   <- debit expense
+    {{"row": 2, "account": {{"id": ASSET_ACCOUNT_ID}},   "amount": -91175}}   <- credit asset
+  FX accounts: 8060 = Valutagevinst (gain/agio), 8160 = Valutatap (loss/disagio).
+  Example FX loss (disagio — invoice paid at lower exchange rate than invoiced):
+    {{"row": 1, "account": {{"id": VALUTATAP_8160_ID}}, "amount": FX_LOSS}},   <- debit FX loss (8160)
+    {{"row": 2, "account": {{"id": KUNDEFORDRINGER_1500_ID}}, "amount": -FX_LOSS}}  <- credit AR (1500)
+  GET /ledger/account to find account IDs by number: params {{"number": "1500", "fields": "id,number,name"}}
+  ALWAYS use /ledger/account (never /account alone) for account lookups — /account returns 404.
   If GET /ledger/account returns count: 0 for an account, skip the voucher that depends on it.
   DELETE /ledger/voucher/{{id}}: GET /ledger/voucher first → DELETE /ledger/voucher/$responses.N.values.0.id
 
@@ -425,6 +445,7 @@ The following endpoints return 404 or 405 and must never be called:
   POST /supplier/invoice           → 405. Use POST /ledger/voucher instead.
   POST /invoice/fromTimesheet      → 405.
   POST /timesheet (without /entry) → 404. Use POST /timesheet/entry.
+  GET /account (without /ledger/)  → 404. Use GET /ledger/account for all account lookups.
 
 === BETA ENDPOINTS — NEVER USE (returns 403 Forbidden) ===
 The following endpoints are tagged [BETA] in the Tripletex API and will always return 403.
@@ -445,6 +466,8 @@ If the task asks you to do something only possible via a BETA endpoint, skip tha
 "$responses.N.values.1.id"      -> id of second item from GET list at step N
 CRITICAL: Only simple dot-path and numeric index placeholders are supported.
   DO NOT use JSONPath filter expressions like $responses.N.values[?(@.field==value)].id — NOT supported, will fail.
+  DO NOT add custom "id" or other extra keys to call objects — only "method", "endpoint", "body", "params" are valid.
+  DO NOT use named references like $responses.myLabel.values.0.id — only numeric indices like $responses.0.values.0.id.
 
 === OUTPUT FORMAT ===
 Respond with ONLY a raw JSON object - no markdown, no code fences, no explanation.
