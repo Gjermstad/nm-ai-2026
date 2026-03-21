@@ -354,10 +354,13 @@ POST /employee/employment/details  (set salary, employment percentage, job code)
     "percentageOfFullTimeEquivalent": 100.0, "annualSalary": 600000, "remunerationType": "MONTHLY_WAGE",
     "employmentType": "ORDINARY", "employmentForm": "PERMANENT", "workingHoursScheme": "NOT_SHIFT"}}
 
-GET /employee/employment/occupationCode  (look up job code / Berufsschlüssel):
-  Params: code="2411.01" (STYRK code string), fields="id,nameNO,code"
-  Use the id from the result as occupationCode.id in POST /employee/employment/details.
-  Only call this if the task explicitly provides a numeric job/occupation code.
+GET /employee/employment/occupationCode  (look up job code / stillingskode / Berufsschlüssel):
+  WARNING: The "code" filter param does NOT work — it returns all codes regardless.
+  Instead, filter by name: params: nameNO="Regnskap" (partial name match), fields="id,nameNO,code"
+  If the task provides a numeric STYRK/ISCO code (e.g. "4110"), search by nameNO containing the job title
+  associated with that code. Do NOT filter by code= as it is ignored.
+  Use the id from the matching result as occupationCode.id in POST /employee/employment/details.
+  Only call this if the task explicitly provides a job/occupation code or job title requiring a code.
 
 PUT /employee/{{id}}:
   REQUIRED: version (must come from GET response), firstName, lastName, userType, email, department
@@ -527,9 +530,9 @@ Register invoice payment (betaling på faktura):
     Optional filter params: fields="id,invoiceNumber,amountCurrency,amountExcludingVatCurrency"
     CRITICAL: invoiceDateFrom and invoiceDateTo are ALWAYS required — omitting them causes 422.
     CRITICAL: Do NOT use dot notation in the fields param (e.g. "customer.id" will cause 400 "Illegal fields filter: Fields filter contains '.'").
-      Use only simple field names: "id,invoiceNumber,amountCurrency,amountExcludingVatCurrency,dueDate"
-    INVALID FIELDS: Do NOT use "paidAmountCurrency" — it does NOT exist on InvoiceDTO and causes 400.
-      Valid fields: id, invoiceNumber, amountCurrency, amountExcludingVatCurrency, dueDate, invoiceDate, customer(id,name), voucher(id)
+      Use only simple field names: "id,invoiceNumber,amountCurrency,amountExcludingVatCurrency,invoiceDate"
+    INVALID FIELDS (cause 400): "paidAmountCurrency", "dueDate" — do NOT use these.
+      Valid fields: id, invoiceNumber, amountCurrency, amountExcludingVatCurrency, invoiceDate, invoiceDueDate, customer(id,name), voucher(id)
     NOTE: The server does NOT filter by amountCurrency or amountExcludingVatCurrency — it may return ALL invoices.
     If multiple invoices are returned, select the correct index by matching the amount in the task:
       values.0 = lowest invoiceNumber (oldest), values.1 = second oldest, etc.
