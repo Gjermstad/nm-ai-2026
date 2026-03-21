@@ -4,6 +4,7 @@ import math
 from typing import Dict, List, Sequence, Tuple
 
 CLASS_NAMES = ["Empty", "Settlement", "Port", "Ruin", "Forest", "Mountain"]
+FLOAT_EPS = 1e-12
 
 
 def terrain_code_to_class(code: int) -> int:
@@ -65,10 +66,20 @@ def normalize_with_floor(values: Sequence[float], floor: float = 0.01) -> List[f
             for i in high:
                 probs[i] *= scale
 
-    # Final tiny numerical correction.
+    # Final tiny numerical correction without re-scaling all classes.
+    # Re-scaling can push exact-floor classes to 0.009999... and trip strict floor checks.
     s = sum(probs)
-    if s > 0:
-        probs = [p / s for p in probs]
+    if s <= 0:
+        return [1.0 / n] * n
+    residual = 1.0 - s
+    if abs(residual) > FLOAT_EPS:
+        i_max = max(range(n), key=lambda i: probs[i])
+        probs[i_max] += residual
+
+    # Clamp tiny floating negatives to zero and run one final floor repair pass if needed.
+    probs = [0.0 if (-FLOAT_EPS < p < 0.0) else p for p in probs]
+    if any(p + FLOAT_EPS < floor for p in probs):
+        return normalize_with_floor(probs, floor=floor)
     return probs
 
 
@@ -160,7 +171,7 @@ def validate_prediction_tensor(
             if abs(s - 1.0) > 0.01:
                 out["sum_ok"] = False
                 out["errors"].append(f"Cell ({y},{x}): probs sum to {s:.4f}, expected 1.0")
-            if any(v < floor for v in cell):
+            if any(v + FLOAT_EPS < floor for v in cell):
                 out["floor_ok"] = False
                 out["errors"].append(f"Cell ({y},{x}): value below floor {floor}")
 
