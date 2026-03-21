@@ -1,5 +1,16 @@
 # Astar Island — Viking Civilisation Prediction
 
+Observe a Norse island simulator. Predict the world state. Outscore everyone.
+
+Observe
+Query the simulator through a 15x15 viewport. 50 queries per round.
+
+Predict
+Submit probability distributions for each cell across all map seeds.
+
+Score
+Scored by KL divergence against the ground truth. 0-100 scale.
+
 ## What is this?
 
 `Astar Island` is a machine learning challenge where you observe a black-box Norse civilisation simulator through a limited viewport and predict the final world state. The simulator runs a procedurally generated Norse world for `50` years — settlements grow, factions clash, trade routes form, alliances shift, forests reclaim ruins, and harsh winters reshape entire civilisations.
@@ -18,6 +29,7 @@ Your goal: observe, learn the world's hidden rules, and predict the probability 
 - Generate predictions — use your understanding to build probability distributions for the full map
 - Submit predictions — for each of the `5` seeds, submit a `W×H×6` probability tensor predicting terrain type probabilities per cell
 - Scoring — your prediction is compared against the ground truth using entropy-weighted `KL` divergence
+- After a round is over it is possible to replay the viewer. Alle previous rounds are available to view if you want.
 
 ## The Core Challenge
 
