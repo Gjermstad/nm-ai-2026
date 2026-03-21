@@ -1,6 +1,55 @@
 # Progress Report: Astar Island Operator (Task 2)
 
-## 0. Latest Session Update (2026-03-21, Saturday ~18:05 Oslo)
+## 0. Latest Session Update (2026-03-21, Saturday ~20:02 Oslo)
+
+- Deployed Task 2 service to Cloud Run in GCP project `ai-nm26osl-1730`:
+  - service: `astar-operator`
+  - region: `europe-north1`
+  - URL: `https://astar-operator-u4ol5cv7ra-lz.a.run.app`
+  - active revision after env update: `astar-operator-00002-6zj`
+- Completed hosted end-to-end smoke on active Round 17 (`id=3eb0c25d-28fa-48ca-b8e1-fc249e3918e9`):
+  - `/health` and `/status` confirmed active round and healthy service
+  - token set via hosted `/auth/token`, then persisted as Cloud Run env var
+  - `run/start` increased query count (`0 -> 1`, later `2/50` confirmed)
+  - `run/stop`, `draft/rebuild`, `submit/seed` and `submit/all` all succeeded
+  - final hosted status during smoke: `submitted_count=5/5`, `run_enabled=false`, `last_error=null`, `token_present=true`
+- Environment and deploy blockers found + fixed:
+  - `gcloud` CLI missing locally -> installed `gcloud-cli`
+  - installer failed due missing Python path -> upgraded `python@3.13`, reran install successfully
+  - gcloud session initially unauthenticated -> completed `gcloud auth login --no-launch-browser`
+  - used isolated Cloud SDK config (`CLOUDSDK_CONFIG=/tmp/gcloud-config`) for deterministic auth/project behavior in session
+  - Cloud SDK in this environment required explicit `--project ai-nm26osl-1730` on commands
+  - sandbox DNS blocked `run.app` checks -> used unrestricted network execution for hosted smoke verification
+- Why this matters:
+  - removes laptop dependency during live rounds
+  - gives a stable hosted operator path with repeatable run/submit workflow
+  - preserves a ready fallback: local app still works if Cloud Run has transient issues
+
+### 0.1 Cloud Resume Commands (verified)
+
+```bash
+# one-time auth (if needed)
+gcloud auth login devstar17301@gcplab.me --no-launch-browser
+gcloud config set project ai-nm26osl-1730
+gcloud config set run/region europe-north1
+
+# deploy/update task2 service
+cd task2-Astar
+gcloud run deploy astar-operator \
+  --project ai-nm26osl-1730 \
+  --source . \
+  --region europe-north1 \
+  --allow-unauthenticated \
+  --memory 1Gi \
+  --timeout 300 \
+  --min-instances 1 \
+  --set-env-vars ALLOW_TOKEN_UPDATE=true
+
+gcloud run services update astar-operator \
+  --project ai-nm26osl-1730 \
+  --region europe-north1 \
+  --update-env-vars ASTAR_ACCESS_TOKEN=<JWT>,ALLOW_TOKEN_UPDATE=true
+```
 
 - Synced local organizer docs in `task2-Astar/task2_docs_*.md` against live MCP resources:
   - `challenge://astar-island/overview`
@@ -33,7 +82,7 @@
   - `py_compile` passed for `core.py`, `backend.py`, `main.py`
   - `pytest task2-Astar/tests/test_core.py` => `6 passed`
 
-### 0.1 Previous Session Snapshot (2026-03-21, Saturday ~17:50 Oslo)
+### 0.2 Previous Session Snapshot (2026-03-21, Saturday ~17:50 Oslo)
 
 - Re-ran the requested local live smoke workflow against a real active round:
   - app started, active round detected (`round_number=16`)
@@ -49,7 +98,7 @@
   - `py_compile` passed for `core.py`, `backend.py`, `main.py`
   - `pytest task2-Astar/tests/test_core.py` => `6 passed`
 
-### 0.2 Previous Session Snapshot (2026-03-21, Saturday ~17:19 Oslo)
+### 0.3 Previous Session Snapshot (2026-03-21, Saturday ~17:19 Oslo)
 
 - PR #19 is merged to `main`, and the feature branch was deleted after merge.
 - The implemented Task 2 stack is now the baseline in repository `main`.

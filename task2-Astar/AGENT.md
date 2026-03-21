@@ -2,7 +2,7 @@
 
 > NM i AI 2026 — Task 2 handoff/control file
 > Last updated: 2026-03-21 (Saturday, Oslo)
-> Status: local authenticated live smoke completed on Round 16 with successful 5/5 submissions. Fast reliability fixes applied for floor enforcement and stale submit errors.
+> Status: Cloud Run deployed and hosted smoke completed on Round 17 with successful 5/5 submissions. Local reliability fixes (strict floor + stale submit error clearing) are in production.
 
 ---
 
@@ -59,12 +59,12 @@ Run this exact order:
    - `task2-Astar/AGENT.md`
    - `task2-Astar/PROGRESS.md`
    - `task2-Astar/SPEC.md`
-2. Start app locally and verify UI loads.
-3. Set token and verify active round detection.
+2. Check hosted service first (`/health`, `/status`) and confirm active round + token present.
+3. If hosted is unhealthy, start app locally as fallback and verify UI loads.
 4. Start run-mode and confirm budget/coverage changes.
 5. Rebuild draft and verify all seed validations are ready.
 6. Submit one seed manually, then submit all seeds.
-7. If stable, deploy/update Cloud Run and repeat smoke test.
+7. Final verify: `submitted_count=5/5`, `run_enabled=false`, `last_error=null`.
 
 ---
 
@@ -90,23 +90,60 @@ task1-Tripletex/.venv/bin/python -m pytest -q task2-Astar/tests/test_core.py
 
 ### Cloud Run deploy
 
+If `gcloud` behaves inconsistently with local config, use an isolated config and always pass explicit project:
+
+```bash
+export CLOUDSDK_CONFIG=/tmp/gcloud-config
+```
+
 ```bash
 cd task2-Astar
 gcloud run deploy astar-operator \
+  --project ai-nm26osl-1730 \
   --source . \
   --region europe-north1 \
   --allow-unauthenticated \
   --memory 1Gi \
   --timeout 300 \
   --min-instances 1 \
-  --set-env-vars ASTAR_ACCESS_TOKEN=<JWT>
+  --set-env-vars ALLOW_TOKEN_UPDATE=true
 ```
+
+```bash
+gcloud run services update astar-operator \
+  --project ai-nm26osl-1730 \
+  --region europe-north1 \
+  --update-env-vars ASTAR_ACCESS_TOKEN=<JWT>,ALLOW_TOKEN_UPDATE=true
+```
+
+### Cloud Run quick smoke (hosted)
+
+```bash
+BASE="https://astar-operator-u4ol5cv7ra-lz.a.run.app"
+curl -sS "$BASE/health"
+curl -sS "$BASE/status"
+curl -sS -X POST "$BASE/run/start"
+sleep 6
+curl -sS -X POST "$BASE/run/stop"
+curl -sS -X POST "$BASE/draft/rebuild"
+curl -sS -X POST "$BASE/submit/seed" -H 'Content-Type: application/json' --data '{"seed_index":0}'
+curl -sS -X POST "$BASE/submit/all"
+curl -sS "$BASE/status"
+```
+
+### Current hosted deployment (verified 2026-03-21)
+
+- Project: `ai-nm26osl-1730`
+- Region: `europe-north1`
+- Service: `astar-operator`
+- URL: `https://astar-operator-u4ol5cv7ra-lz.a.run.app`
+- Latest verified revision: `astar-operator-00002-6zj`
 
 ---
 
 ## 5. Known Gaps To Address Next
 
-1. Cloud Run live smoke test still pending for task2 service.
+1. Token lifecycle hardening still needed (use Secret Manager + rotation policy instead of static env var).
 2. Planner is heuristic baseline; post-round calibration may improve leaderboard upside.
 3. No integration tests for API client/service flow yet (only core unit tests).
 
@@ -121,6 +158,7 @@ gcloud run deploy astar-operator \
 5. Update both `task2-Astar/AGENT.md` and `task2-Astar/PROGRESS.md` after meaningful changes.
 6. When syncing organizer docs through MCP, fetch each resource with retries and a fresh `initialize` session per resource to avoid intermittent `Session not found` failures.
 7. Treat organizer docs as canonical, but sanitize obvious upstream artifacts/noise before saving local copies.
+8. Do not paste raw access tokens in logs/docs/PR text; store in env/secret systems only.
 
 ---
 

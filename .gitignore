@@ -46,3 +46,7 @@ submissions/
 tmp/
 temp/
 *.tmp
+
+# Local agent worktrees / runtime state
+.claude/
+task2-Astar/runtime/
