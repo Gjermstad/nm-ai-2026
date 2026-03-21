@@ -7,6 +7,7 @@ from core import (
     cell_distribution,
     clamp_viewport,
     normalize_with_floor,
+    prior_distribution,
     terrain_code_to_class,
     validate_prediction_tensor,
 )
@@ -38,6 +39,20 @@ def test_cell_distribution_no_zeros():
     assert len(dist) == 6
     assert all(v > 0 for v in dist)
     assert abs(sum(dist) - 1.0) < 1e-8
+
+
+def test_unknown_terrain_prior_stays_empty_dominant():
+    safe = prior_distribution(initial_code=0, near_settlement=False, aggressive=False)
+    aggr = prior_distribution(initial_code=0, near_settlement=False, aggressive=True)
+    assert safe[0] >= 0.8
+    assert aggr[0] >= 0.75
+    assert (aggr[1] + aggr[2] + aggr[3]) <= 0.2
+
+
+def test_near_settlement_aggressive_prior_is_bounded():
+    near = prior_distribution(initial_code=0, near_settlement=True, aggressive=True)
+    assert near[0] >= 0.65
+    assert (near[1] + near[2] + near[3]) <= 0.3
 
 
 def test_validate_prediction_tensor_passes():

@@ -1,6 +1,25 @@
 # Progress Report: Astar Island Operator (Task 2)
 
-## 0. Latest Session Update (2026-03-21, Saturday ~20:38 Oslo)
+## 0. Latest Session Update (2026-03-21, Saturday ~20:50 Oslo)
+
+- Incorporated Round 16 post-mortem screenshots (all 5 seeds, layer-analysis) for calibration:
+  - consistent pattern found: `Empty` underprediction and overly diffuse `Settlement`/`Port`/`Ruin` mass
+- Applied calibration patch in `task2-Astar/core.py` (no architecture changes):
+  - reduced dynamic-heavy priors for non-water/non-mountain cells
+  - reduced near-settlement dynamic spread boost
+  - reduced aggressive global dynamic boost
+  - increased posterior smoothing (`alpha`) to suppress noisy over-spread
+- Added regression guards in `task2-Astar/tests/test_core.py`:
+  - `test_unknown_terrain_prior_stays_empty_dominant`
+  - `test_near_settlement_aggressive_prior_is_bounded`
+- Validation:
+  - `python3 -m py_compile task2-Astar/core.py task2-Astar/backend.py task2-Astar/main.py` passed
+  - `pytest -q task2-Astar/tests/test_core.py` => `9 passed`
+- Deployment status:
+  - tuning patch prepared and pushed to PR branch for review
+  - intentionally not auto-deployed mid-round.
+
+## 0.1 Previous Session Update (2026-03-21, Saturday ~20:38 Oslo)
 
 - Goal for this pass: maximize Round 17 score while preserving deadline safety.
 - Live hosted optimization run executed on `https://astar-operator-u4ol5cv7ra-lz.a.run.app`:
@@ -29,7 +48,7 @@
   - `task2-Astar/tests/test_core.py`: added regression for near-floor float roundoff in validation
   - local tests: `pytest -q task2-Astar/tests/test_core.py` => `7 passed`
 
-## 0.1 Previous Session Update (2026-03-21, Saturday ~20:12 Oslo)
+## 0.2 Previous Session Update (2026-03-21, Saturday ~20:12 Oslo)
 
 - Continued Task 2 with required file-read order:
   - `task2-Astar/AGENT.md`
@@ -59,7 +78,7 @@
   - no architecture changes
   - floor safety (`0.01`) and deadline guard behavior unchanged
 
-## 0.2 Previous Session Update (2026-03-21, Saturday ~20:02 Oslo)
+## 0.3 Previous Session Update (2026-03-21, Saturday ~20:02 Oslo)
 
 - Deployed Task 2 service to Cloud Run in GCP project `ai-nm26osl-1730`:
   - service: `astar-operator`
