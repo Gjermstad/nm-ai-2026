@@ -85,13 +85,19 @@ Note on T1/T2: the leaderboard columns T1/T2/T3 are the three competition tasks 
 | 4 | Register payment on Brattli AS invoice, 31300 NOK "Konsulenttimer" (Norwegian) | ⚠️ 1/2 | 2/7 | 2 | GET /invoice missing `invoiceDateFrom`/`invoiceDateTo` → 422 → unresolved placeholder → 404 on payment |
 | 5 | Reverse bank return — Lysgård AS, 15600 NOK "Konsulenttimer" → reinstate invoice (Norwegian) | ⚠️ 1/3 | 2/8 | 2 | Same GET /invoice date params missing; repair used `"path"` instead of `"endpoint"` |
 | 6 | Create order + invoice + payment for Waldstein GmbH, Netzwerkdienst + Beratungsstunden (German) | ⚠️ 3/5 | 4/8 | 2 | Invoice creation worked ✅; payment 404 because `paidAmount` placeholder not resolved in params (bug fixed PR #12) |
+| 7 | Create project "Intégration Montagne" for Montagne SARL, PM Nathan Martin (French) | ✅ 7/7 | 8/8 | 1 | — |
+| 8 | Create order + invoice + payment for Río Verde SL, 2 products (Spanish) | ⚠️ 3/4 | 4/8 | 2 | Payment 404 — invoice id 2147557274 > INT32_MAX, may overflow in proxy; paidAmount was hardcoded 63000.0 (correct) |
+| 9 | Create customer Sonnental GmbH with address Solveien 21 Tromsø (German) | ❌ 0/1 | 0/8 | 1 | `POST /customer` address: tried `visitingAddress` (nested) and `visitingAddressLine1` (flat), both 422. Correct field: `postalAddress` (fixed PR #13) |
 
 **Patterns observed:**
 - Credit notes on existing invoices → works perfectly ✅
-- Creating new invoices → sometimes fails with bank account 422 (validator env), sometimes works (task #6)
+- Create project → works perfectly ✅
+- Creating new invoices → sometimes fails with bank account 422 (validator env), sometimes works (task #6, #8)
 - `GET /invoice` always requires `invoiceDateFrom` + `invoiceDateTo` — Gemini keeps omitting them → fixed in PR #12
 - `params` placeholders (e.g. `paidAmount: "$responses.N.value.amountCurrency"`) were never resolved → fixed in PR #12
 - Repair pass using `"path"` or `"url"` instead of `"endpoint"` → fixed in PR #11
+- `POST /customer` address fields: `postalAddress`/`physicalAddress` (not `visitingAddress`) → fixed in PR #13
+- Order→invoice→payment: paidAmount should use `$responses.N.value.amountCurrency` placeholder → fixed in PR #13
 
 ## 6. What still needs to be done
 

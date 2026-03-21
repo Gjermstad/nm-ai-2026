@@ -267,7 +267,11 @@ PUT /employee/{{id}}:
 
 POST /customer:
   REQUIRED: name
-  Optional: email, phoneNumber, isCustomer (true)
+  Optional: email, phoneNumber, isCustomer (true),
+            postalAddress ({{"addressLine1": "...", "postalCode": "...", "city": "..."}}),
+            physicalAddress ({{"addressLine1": "...", "postalCode": "...", "city": "..."}})
+  NOTE: Address fields use postalAddress/physicalAddress — NOT visitingAddress or visitingAddressLine1.
+        Omit country if the address is in Norway.
 
 PUT /customer/{{id}}:
   REQUIRED: version (from GET), name
@@ -291,7 +295,13 @@ PUT /order/{{id}}/:invoice  (convert an existing order to a paid or unpaid invoi
   REQUIRED query params: invoiceDate=YYYY-MM-DD
   Optional query params: sendToCustomer=false (default — do NOT send unless prompt explicitly says to send)
   Flow: GET /order or use existing order id → PUT /order/$responses.N.value.id/:invoice?invoiceDate={today}&sendToCustomer=false
-  Returns the created invoice in the response body.
+  Returns the created invoice in the response body (value.id = invoice ID, value.amountCurrency = total amount incl. VAT).
+  If also registering payment in the same plan: use "$responses.N.value.amountCurrency" for paidAmount (N = index of this call).
+  Example combined flow (create order, invoice it, pay it):
+    call 0: GET /customer (find customer id)
+    call 1: POST /order (create order, use $responses.0.values.0.id for customer.id)
+    call 2: PUT /order/$responses.1.value.id/:invoice (params: invoiceDate, sendToCustomer=false)
+    call 3: PUT /invoice/$responses.2.value.id/:payment (params: paymentDate, paymentTypeId=1, paidAmount="$responses.2.value.amountCurrency")
 
 POST /invoice  (alternative — create invoice directly linking one or more orders):
   REQUIRED body fields: invoiceDate, invoiceDueDate, orders: [{{"id": ORDER_ID}}]
