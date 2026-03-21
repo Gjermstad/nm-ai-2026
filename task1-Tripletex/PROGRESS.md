@@ -76,6 +76,8 @@ Bank account fix confirmed working (PR #22 deployed). Latest batch of 4 submissi
 | 38 | Complete project lifecycle: create project, log time x2, register supplier cost, create invoice (English) | ⚠️ 2/11 | 3 | Gemini hallucinated `tool_code` format instead of REST API calls → all skipped. Fixed PR #27: reinforce output format, ban tool_code. |
 | 39 | Create and send invoice to Lumière SARL, 34100 NOK, Stockage cloud (French) | ✅ 7/7 | 2 | Bank account ✅, sendToCustomer=true ✅ |
 | 40 | Create employee from PDF employment contract — Maximilian Fischer, Kvalitetskontroll dept (German) | ❌ 0/22 | 3 | Gemini used ternary expression for department.id → unresolved placeholder → employee skipped. Missing: employeeNumber, POST /employee/employment, POST /employee/employment/details. Fixed PR #27. |
+| 41 | Bank statement reconciliation CSV — match payments to customer/supplier invoices, handle partial payments (German) | ❌ 0/10 | 3 | Customer invoice payment → 404 (INT32_MAX). Supplier payment voucher → 422 system-generated. Repair POST /supplierPayment → 404. POST /bank/reconciliation? Unknown. |
+| 35x | Month-end closing (Norwegian/Spanish variants) | ⚠️ 2/10 | 3 | CONSISTENTLY: ALL voucher account postings → 422 system-generated in this validator env (1290, 1720, 5000, 2900, 6020, 6500). The 2pts are from GET /ledger/account calls. Fundamentally unfixable — Tripletex treats all manual journal entries as system-generated. |
 
 **Patterns observed:**
 - Credit notes on existing invoices → works ✅
