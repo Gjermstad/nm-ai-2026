@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Astar Island Operator</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">Astar Operator</div>
+      <nav id="tab-nav" class="tabs"></nav>
+      <div class="top-actions">
+        <button id="refresh-btn">Refresh</button>
+      </div>
+    </header>
+
+    <main>
+      <section id="global-alert" class="alert hidden"></section>
+
+      <section id="tab-dashboard" class="tab-panel active">
+        <div class="grid cards">
+          <div class="card">
+            <h3>Round</h3>
+            <div id="round-label" class="metric">No active round</div>
+            <div id="round-meta" class="muted"></div>
+          </div>
+          <div class="card">
+            <h3>Deadline</h3>
+            <div id="deadline-countdown" class="metric">--</div>
+            <div id="deadline-risk" class="pill">safe</div>
+          </div>
+          <div class="card">
+            <h3>Queries</h3>
+            <div id="queries-metric" class="metric">0 / 50</div>
+            <div id="queries-remaining" class="muted">Remaining: 50</div>
+          </div>
+          <div class="card">
+            <h3>Submission</h3>
+            <div id="submission-metric" class="metric">0 / 5</div>
+            <div id="submission-meta" class="muted">No submissions yet</div>
+          </div>
+        </div>
+
+        <div class="grid two-col">
+          <div class="card">
+            <h3>Controls</h3>
+            <div class="row wrap">
+              <button id="start-run-btn" class="primary">Start Run</button>
+              <button id="stop-run-btn">Stop Run</button>
+              <button id="rebuild-btn">Rebuild Draft</button>
+            </div>
+            <div class="row wrap">
+              <label>Profile
+                <select id="profile-select">
+                  <option value="safe">safe</option>
+                  <option value="aggressive">aggressive</option>
+                </select>
+              </label>
+              <label>
+                Deadline Guard
+                <input type="checkbox" id="guard-toggle" checked />
+              </label>
+            </div>
+            <div class="row wrap">
+              <label class="token-label">Access Token
+                <input type="password" id="token-input" placeholder="Paste JWT token" />
+              </label>
+              <button id="token-save-btn">Set Token</button>
+            </div>
+            <div id="run-state" class="muted"></div>
+          </div>
+          <div class="card">
+            <h3>Seed Readiness</h3>
+            <table id="seed-summary-table">
+              <thead>
+                <tr>
+                  <th>Seed</th>
+                  <th>Coverage</th>
+                  <th>Entropy</th>
+                  <th>Conf.</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="tab-explorer" class="tab-panel">
+        <div class="grid two-col">
+          <div class="card">
+            <h3>Seed Explorer</h3>
+            <div id="seed-tabs" class="seed-tabs"></div>
+            <div class="row wrap">
+              <label>Layer
+                <select id="layer-select">
+                  <option value="argmax">Prediction (argmax)</option>
+                  <option value="initial">Initial terrain</option>
+                  <option value="uncertainty">Uncertainty</option>
+                  <option value="coverage">Coverage</option>
+                </select>
+              </label>
+            </div>
+            <canvas id="seed-canvas" width="600" height="600"></canvas>
+          </div>
+          <div class="card">
+            <h3>Seed Details</h3>
+            <div id="seed-detail-meta" class="mono"></div>
+            <h4>Last Viewport Counts</h4>
+            <div id="viewport-counts" class="mono"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="tab-submit" class="tab-panel">
+        <div class="card">
+          <h3>Submission Controls</h3>
+          <div class="row wrap">
+            <button id="submit-all-btn" class="primary">Submit All</button>
+            <button id="rebuild-submit-btn">Rebuild Draft</button>
+          </div>
+          <p class="muted">Manual submit is default. Deadline guard auto-submits missing seeds at T-20m.</p>
+        </div>
+        <div id="submit-cards" class="grid cards"></div>
+      </section>
+
+      <section id="tab-logs" class="tab-panel">
+        <div class="card">
+          <h3>Logs</h3>
+          <div class="row wrap">
+            <label>Level
+              <select id="log-level">
+                <option value="">all</option>
+                <option value="error">error</option>
+                <option value="warning">warning</option>
+                <option value="info">info</option>
+              </select>
+            </label>
+            <button id="logs-refresh-btn">Refresh Logs</button>
+          </div>
+          <div id="logs-list" class="logs mono"></div>
+        </div>
+      </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>
