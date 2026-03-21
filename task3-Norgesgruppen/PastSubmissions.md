@@ -53,6 +53,20 @@ For every submission cycle:
 - `INFERRED`: Task 3 remains a primary drag on overall placement and should be prioritized for rapid score recovery.
 - `DECISION`: Keep Task 3 docs synchronized and GitHub-pushed each session to avoid losing baseline/evidence state.
 
+### Entry T3-CANDIDATE-004
+- Timestamp: `2026-03-22 00:42` (CET, Oslo)
+- Evidence source: direct VM run logs + local artifact verification
+- `OBSERVED`: Implemented new `run.py` inference pipeline with letterbox-aware scaling + class-aware NMS + bbox clipping + JSON schema-safe output.
+- `OBSERVED`: VM smoke run on `12` images completed in `8s`; schema check reported `bad_records 0`.
+- `OBSERVED`: VM full dry run on `248` images completed in `45s` and produced `23,956` predictions.
+- `OBSERVED`: Guarded artifact built and verified:
+  - VM path: `~/submission_task3_guarded.zip`
+  - Local path: `task3-Norgesgruppen/submission_task3_guarded.zip`
+  - Size: `138 MB`
+  - Zip root contents: `run.py`, `best.onnx`
+- `INFERRED`: Prior score bottleneck likely came from post-processing quality, and this candidate is materially safer than the previous baseline.
+- `DECISION`: Use this as the next controlled single submission candidate and log post-submit score/rank delta immediately.
+
 ## 5. Active Hypothesis Queue
 
 ### HYP-001: ONNX decoding/parsing correctness
