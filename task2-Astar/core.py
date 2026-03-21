@@ -97,27 +97,28 @@ def prior_distribution(initial_code: int, near_settlement: bool, aggressive: boo
     elif initial_code == 5:
         base = [0.03, 0.01, 0.01, 0.01, 0.01, 0.93]
     elif initial_code == 4:
-        base = [0.24, 0.08, 0.03, 0.08, 0.52, 0.05]
+        base = [0.30, 0.05, 0.02, 0.04, 0.54, 0.05]
     elif initial_code == 3:
-        base = [0.16, 0.20, 0.10, 0.44, 0.07, 0.03]
+        base = [0.22, 0.14, 0.08, 0.34, 0.18, 0.04]
     elif initial_code == 2:
-        base = [0.16, 0.18, 0.47, 0.10, 0.06, 0.03]
+        base = [0.22, 0.12, 0.36, 0.08, 0.18, 0.04]
     elif initial_code == 1:
-        base = [0.16, 0.44, 0.16, 0.13, 0.08, 0.03]
+        base = [0.22, 0.34, 0.12, 0.10, 0.18, 0.04]
     else:
-        base = [0.75, 0.08, 0.04, 0.05, 0.05, 0.03]
+        base = [0.84, 0.05, 0.02, 0.03, 0.04, 0.02]
 
     if near_settlement and initial_code not in (5, 10):
-        dynamic_boost = 0.06 if not aggressive else 0.12
+        dynamic_boost = 0.025 if not aggressive else 0.04
         base[1] += dynamic_boost
-        base[2] += dynamic_boost * 0.7
-        base[3] += dynamic_boost * 0.6
-        base[0] -= dynamic_boost * 1.6
+        base[2] += dynamic_boost * 0.5
+        base[3] += dynamic_boost * 0.35
+        base[0] -= dynamic_boost * 1.85
 
     if aggressive and initial_code not in (5, 10):
-        base[1] += 0.04
-        base[3] += 0.03
-        base[0] -= 0.05
+        base[1] += 0.015
+        base[3] += 0.01
+        base[0] -= 0.02
+        base[4] -= 0.005
 
     return normalize_with_floor(base, floor=0.001)
 
@@ -130,7 +131,7 @@ def cell_distribution(
     floor: float,
 ) -> List[float]:
     prior = prior_distribution(initial_code, near_settlement, aggressive)
-    alpha = 3.0 if aggressive else 8.0
+    alpha = 5.5 if aggressive else 9.0
     posterior = [prior[i] * alpha + float(observed_counts[i]) for i in range(6)]
     return normalize_with_floor(posterior, floor=floor)
 
