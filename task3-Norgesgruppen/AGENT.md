@@ -1,8 +1,8 @@
 # AGENT.md — Task 3: NorgesGruppen Object Detection
 
 > NM i AI 2026 — Task 3 handoff/control file
-> Last updated: 2026-03-22 01:29 CET (Sunday, Oslo)
-> Status: Guarded baseline (`0.7626`) preserved; class-agnostic NMS candidate validated and packaged as `submission_task3_agnostic_nms.zip` (awaiting submit decision).
+> Last updated: 2026-03-22 01:53 CET (Sunday, Oslo)
+> Status: Class-agnostic NMS submission completed with lower score (`0.7619`); keep guarded baseline `0.7626` selected as final.
 
 ---
 
@@ -119,6 +119,8 @@ Current bounded follow-up candidate (not submitted yet):
   - baseline combo AP proxy `0.761466`
   - candidate combo AP proxy `0.765064`
 - Candidate artifact: `task3-Norgesgruppen/submission_task3_agnostic_nms.zip`
+- Submission result (2026-03-22 01:52 Oslo): `0.7619` score, `18.9s` runtime, `138.2 MB` file size.
+- Outcome: no improvement vs baseline `0.7626`; baseline remains selected.
 
 Important:
 - Older `#157` and `0.1786` notes remain historical context only.

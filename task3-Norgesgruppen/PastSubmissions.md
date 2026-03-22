@@ -96,6 +96,16 @@ For every submission cycle:
 - `INFERRED`: Candidate is low-risk from runtime/schema perspective and likely improves leaderboard score versus current baseline.
 - `DECISION`: Submit exactly one bounded follow-up using `submission_task3_agnostic_nms.zip`, keep `submission_task3_guarded.zip` as immediate rollback if runtime or score regresses.
 
+### Entry T3-RESULT-007
+- Timestamp: `2026-03-22 01:52` (Oslo, submission completion shown in UI)
+- Evidence source: operator-shared submission history screenshot
+- `OBSERVED`: Candidate submission score `0.7619` (no improvement vs `0.7626` baseline).
+- `OBSERVED`: Candidate runtime `18.9s` (baseline runtime `17.5s`).
+- `OBSERVED`: Candidate size `138.2 MB`.
+- `OBSERVED`: Submission row time window shown: `22. mars, 01:51 — 22. mars, 01:52`.
+- `INFERRED`: Class-agnostic NMS reduced duplicate predictions but likely removed beneficial class-retention behavior for competition scoring.
+- `DECISION`: Keep existing `0.7626` entry selected as final in UI; no rollback re-upload required.
+
 ## 5. Active Hypothesis Queue
 
 ### HYP-001: ONNX decoding/parsing correctness
