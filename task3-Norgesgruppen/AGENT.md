@@ -1,8 +1,8 @@
 # AGENT.md — Task 3: NorgesGruppen Object Detection
 
 > NM i AI 2026 — Task 3 handoff/control file
-> Last updated: 2026-03-22 02:05 CET (Sunday, Oslo)
-> Status: Class-agnostic pass failed (`0.7619`); new class-aware `CONF_THRESHOLD=0.20` candidate packaged as `submission_task3_conf020.zip`.
+> Last updated: 2026-03-22 02:10 CET (Sunday, Oslo)
+> Status: `CONF_THRESHOLD=0.20` bounded pass improved score to `0.7780`; newest submission is selected as final.
 
 ---
 
@@ -102,28 +102,23 @@ Run this exact sequence before making changes:
 
 ---
 
-## 4. Current Baseline Snapshot (Last Verified: 2026-03-22 01:02 Oslo)
+## 4. Current Baseline Snapshot (Last Verified: 2026-03-22 02:10 Oslo)
 
 Latest verified Task 3 checkpoint (from operator-shared submission + leaderboard screenshots):
-- Score: `0.7626` mAP
-- Rank: `#249` (operator reported, previously `#309`)
-- Submission runtime shown: `17.5s`
-- Submission artifact: `submission_task3_guarded.zip` (`138.2 MB`) containing `run.py` + `best.onnx`
-- Working hypothesis update: ONNX post-processing fixes (letterbox-aware scaling + class-aware NMS + clipping) were the primary improvement driver.
+- Score: `0.7780` mAP
+- Submission runtime shown: `19.1s`
+- Submission artifact selected as final: `submission_task3_conf020.zip` (`138.2 MB`) containing `run.py` + `best.onnx`
+- Submission row time window shown in UI: `22. mars, 02:09 — 22. mars, 02:10`
+- Previous best was `0.7626` (runtime `17.5s`), now superseded.
+- Working hypothesis update: restoring class-aware NMS and lowering confidence threshold (`0.25 -> 0.20`) improved competition score.
 
 Previous bounded pass result:
 - Change tested: class-aware NMS -> class-agnostic NMS only
 - Submission result (2026-03-22 01:52 Oslo): `0.7619` score, `18.9s` runtime, `138.2 MB` file size.
 - Outcome: no improvement vs baseline `0.7626`; baseline remains selected.
 
-Current bounded follow-up candidate (not submitted yet):
-- Change tested: keep class-aware NMS, lower `CONF_THRESHOLD` from `0.25` to `0.20`
-- VM full dry run: `45.768s` on `248` images
-- Predictions: `25,712` (baseline `23,956`)
-- Local proxy eval on VM:
-  - baseline combo AP proxy `0.761466`
-  - candidate combo AP proxy `0.782002`
-- Candidate artifact: `task3-Norgesgruppen/submission_task3_conf020.zip`
+Current bounded follow-up candidate:
+- None active at this timestamp (latest pass has already been submitted and selected final).
 
 Important:
 - Older `#157` and `0.1786` notes remain historical context only.
@@ -166,6 +161,7 @@ gcloud compute scp yolo-training-vm:~/submission_task3_conf020.zip ~/submission_
 ```
 
 Then upload the chosen artifact in app UI (`submission_task3_guarded.zip` rollback-safe baseline, `submission_task3_agnostic_nms.zip` failed pass, or `submission_task3_conf020.zip` current candidate).
+Then set the best-scoring row as final in UI (current final: `0.7780`).
 
 ---
 

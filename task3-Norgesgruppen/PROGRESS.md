@@ -6,6 +6,15 @@
 - Timestamped leaderboard evidence must be appended when baseline status changes.
 - Before ending a Task 3 session, docs updates must be pushed to GitHub to avoid local-only data loss.
 
+## 0.1 Submission Outcome Update (2026-03-22, Sunday 02:10 CET)
+
+- `OBSERVED`: `CONF_THRESHOLD=0.20` candidate submission completed (`22. mars 02:09–02:10` in UI).
+- `OBSERVED`: Score improved to `0.7780` (from previous best `0.7626`).
+- `OBSERVED`: Runtime `19.1s`; file size `138.2 MB`.
+- `OBSERVED`: New row is selected as final in UI.
+- `INFERRED`: Lower confidence threshold on class-aware pipeline improved the competition metric despite slightly slower runtime.
+- `DECISION`: Freeze this as current Task 3 baseline and run any further attempts only as one-variable bounded passes.
+
 ## 1. Latest Session Update (2026-03-22, Sunday 02:05 CET)
 
 - Restored known-good NMS mode and changed one tuning lever only:
@@ -144,7 +153,7 @@
 
 ## 2. Next Actions
 
-1. Submit `task3-Norgesgruppen/submission_task3_conf020.zip` as the next one-variable bounded attempt.
-2. If score does not beat `0.7626`, keep existing high-score entry selected as final (no re-upload needed).
+1. Keep `0.7780` entry selected as final in UI.
+2. If another attempt is made, keep it strictly one-variable and predefine rollback criteria.
 3. Record resulting score/runtime/rank evidence in `PastSubmissions.md` immediately with exact timestamp.
-4. Keep further experiments strictly one-variable per submission.
+4. Preserve Task 3 docs sync (`AGENT.md` + `PROGRESS.md` + `PastSubmissions.md`) after each submission.

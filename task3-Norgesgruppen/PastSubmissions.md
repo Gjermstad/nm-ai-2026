@@ -122,6 +122,17 @@ For every submission cycle:
 - `INFERRED`: Lower confidence threshold may recover recall/classification opportunities while keeping runtime stable.
 - `DECISION`: Submit exactly one bounded follow-up using `submission_task3_conf020.zip`; keep `0.7626` selected final unless this beats it.
 
+### Entry T3-RESULT-009
+- Timestamp: `2026-03-22 02:10` (Oslo, submission completion shown in UI)
+- Evidence source: operator-shared submission history screenshot
+- `OBSERVED`: Candidate submission score `0.7780` (improved from `0.7626`).
+- `OBSERVED`: Candidate runtime `19.1s`.
+- `OBSERVED`: Candidate size `138.2 MB`.
+- `OBSERVED`: Submission row time window shown: `22. mars, 02:09 — 22. mars, 02:10`.
+- `OBSERVED`: This newest row is selected as final in UI.
+- `INFERRED`: Lowering `CONF_THRESHOLD` while preserving class-aware NMS provided a net score gain for organizer scoring.
+- `DECISION`: Promote `submission_task3_conf020.zip` as current baseline/final and continue only with tightly bounded one-variable experiments.
+
 ## 5. Active Hypothesis Queue
 
 ### HYP-001: ONNX decoding/parsing correctness
