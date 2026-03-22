@@ -48,6 +48,127 @@
 - `INFERRED`: IOU pass is technically safe but expected leaderboard gain is likely small relative to remaining submission budget.
 - `DECISION`: Keep `0.7780` selected final for now; prioritize overnight retraining outputs for next submission candidate.
 
+## 0.4 Overnight Continuity Check Before Laptop Close (2026-03-22, Sunday 02:57 CET)
+
+- `OBSERVED`: VM process `PID 649159` is alive with `PPID=1`, `TTY=?`, state `Sl` (`/opt/conda/bin/python /home/kenneth/task3-recovery/overnight_bigtrain.py`).
+- `OBSERVED`: VM instance status is `RUNNING` (`yolo-training-vm`, zone `europe-west1-c`, machine `g2-standard-4`, `PREEMPTIBLE` empty/non-preemptible).
+- `OBSERVED`: GPU is actively used during training (`NVIDIA L4`, utilization around `69%`, memory `9431 MiB / 23034 MiB`).
+- `OBSERVED`: Log file is still advancing over time:
+  - `LOG_MTIME_BEFORE=1774144553`, `LOG_MTIME_AFTER=1774144573`
+  - `LOG_SIZE_BEFORE=633204`, `LOG_SIZE_AFTER=645924`
+- `INFERRED`: Overnight job is detached from the local client and continues independently on VM.
+- `DECISION`: Safe to close laptop; continue monitoring/review in next session via `~/task3-recovery/overnight_bigtrain.log` and `/home/kenneth/task3-overnight/overnight_summary.txt`.
+
+## 0.5 Morning Recovery and Strong Candidate Build (2026-03-22, Sunday 10:32 CET)
+
+- `OBSERVED`: Overnight training script completed both runs and wrote summary, but each run ended with a PyTorch 2.6 `weights_only` error during Ultralytics post-processing (`strip_optimizer`), not during training epochs.
+- `OBSERVED`: Despite that error, both checkpoints were produced:
+  - `/home/kenneth/task3-overnight/ft_beststripped_img960_e220/weights/best.pt`
+  - `/home/kenneth/task3-overnight/ft_yolov8l_img960_e260/weights/best.pt`
+- `OBSERVED`: Final validation metrics from `results.csv`:
+  - `ft_beststripped_img960_e220`: precision `0.87966`, recall `0.80345`, mAP50 `0.87416`, mAP50-95 `0.68282`
+  - `ft_yolov8l_img960_e260`: precision `0.85289`, recall `0.78110`, mAP50 `0.84180`, mAP50-95 `0.64973`
+- `OBSERVED`: Exported ONNX from stronger run:
+  - source: `/home/kenneth/task3-overnight/ft_beststripped_img960_e220/weights/best.pt`
+  - output: `/home/kenneth/task3-overnight/ft_beststripped_img960_e220/weights/best.onnx` (`167.6 MB`)
+- `OBSERVED`: Benchmarked with current production inference pipeline (`run.py`, `CONF_THRESHOLD=0.20`, class-aware NMS):
+  - runtime: `45.991s` on `248` images
+  - predictions: `24,446`
+  - schema validity: `bad_records=0`
+- `OBSERVED`: Custom proxy comparison (IoU>=0.5 weighted `70/30`):
+  - current `conf020`: `0.824353`
+  - overnight candidate: `0.958365`
+- `OBSERVED`: Prepared upload-ready artifact:
+  - VM: `~/submission_task3_overnightA_conf020.zip`
+  - Local: `task3-Norgesgruppen/submission_task3_overnightA_conf020.zip` (`138 MB`)
+- `INFERRED`: Candidate appears materially stronger than current baseline and deserves immediate submission priority.
+- `DECISION`: Use `submission_task3_overnightA_conf020.zip` as the next Task 3 submission candidate.
+
+## 0.6 Submission Outcome Update (2026-03-22, Sunday 10:40 CET)
+
+- `OBSERVED`: `submission_task3_overnightA_conf020.zip` completed in submission history (`22. mars 10:34–10:40` in UI).
+- `OBSERVED`: Score improved to `0.8621` (from previous final `0.7780`).
+- `OBSERVED`: Runtime `19.0s`; file size `138.2 MB`.
+- `OBSERVED`: Newest row is selected as `Final` in UI.
+- `INFERRED`: Overnight retraining plus stable inference pipeline delivered a major step-change improvement.
+- `INFERRED`: If pre-submit remaining attempts were `4`, remaining attempts are now approximately `3`.
+- `DECISION`: Promote `0.8621` as new baseline/final and spend remaining submissions only on high-upside candidates.
+
+## 0.7 One-Variable CONF Sweep on New Baseline Model (2026-03-22, Sunday 10:58 CET)
+
+- `OBSERVED`: Ran full one-variable sweep on overnight best ONNX with class-aware NMS + `IOU_THRESHOLD=0.70`; changed only `CONF_THRESHOLD`.
+- `OBSERVED`: Sweep points (`CONF_THRESHOLD -> combo proxy`, IoU>=0.5 weighted `70/30`):
+  - `0.12 -> 0.964259`
+  - `0.15 -> 0.962253`
+  - `0.18 -> 0.960124`
+  - `0.20 -> 0.958365` (current submitted `0.8621` config)
+  - `0.22 -> 0.956549`
+  - `0.24 -> 0.954702`
+  - `0.26 -> 0.953064`
+- `OBSERVED`: Best sweep setting was `CONF_THRESHOLD=0.12` with:
+  - runtime `46.564s`
+  - predictions `25,802`
+  - schema validity `bad_records=0`
+- `OBSERVED`: Prepared next candidate artifact:
+  - VM: `~/submission_task3_overnightA_conf012.zip`
+  - Local: `task3-Norgesgruppen/submission_task3_overnightA_conf012.zip` (`138 MB`)
+- `INFERRED`: Lower confidence threshold appears to increase recall/classification opportunities on the stronger retrained model.
+- `DECISION`: `submission_task3_overnightA_conf012.zip` is the next high-upside candidate if we use another submission.
+
+## 0.8 Submission Outcome Update (2026-03-22, Sunday 11:20 CET)
+
+- `OBSERVED`: `submission_task3_overnightA_conf006.zip` completed in submission history (`22. mars 11:19–11:20` in UI).
+- `OBSERVED`: Score improved to `0.8798` (from previous final `0.8621`).
+- `OBSERVED`: Runtime `18.0s`; file size `138.2 MB`.
+- `OBSERVED`: Newest row is selected as `Final` in UI.
+- `OBSERVED`: UI indicates `2 of 6 submissions remaining today`.
+- `INFERRED`: Lowering confidence from `0.20`/`0.12` down to `0.06` unlocked another substantial gain while reducing runtime.
+- `DECISION`: Promote `0.8798` as current baseline/final and spend remaining attempts on one-variable, high-upside follow-ups only.
+
+## 0.9 One-Variable IOU Sweep at CONF=0.06 (2026-03-22, Sunday 11:15 CET)
+
+- `OBSERVED`: Ran one-variable sweep with overnight best ONNX + class-aware NMS; kept `CONF_THRESHOLD=0.06` fixed and changed only `IOU_THRESHOLD`.
+- `OBSERVED`: Best proxy setting from sweep was `IOU_THRESHOLD=0.60` (with `0.55` effectively tied, but second-best).
+- `OBSERVED`: Prepared next candidate artifacts:
+  - `task3-Norgesgruppen/submission_task3_overnightA_conf006_iou060.zip`
+  - `task3-Norgesgruppen/submission_task3_overnightA_conf006_iou055.zip`
+- `INFERRED`: Small but non-zero upside remains from NMS overlap tuning on top of the stronger low-confidence baseline.
+- `DECISION`: Next bounded pass should use `submission_task3_overnightA_conf006_iou060.zip` (single variable: `IOU_THRESHOLD 0.70 -> 0.60`).
+
+## 0.10 Submission Outcome Update (2026-03-22, Sunday 11:26 CET)
+
+- `OBSERVED`: `submission_task3_overnightA_conf006_iou060.zip` completed in submission history (`22. mars 11:25–11:26` in UI).
+- `OBSERVED`: Score improved to `0.8808` (from previous final `0.8798`).
+- `OBSERVED`: Runtime `17.7s`; file size `138.2 MB`.
+- `OBSERVED`: Newest row is selected as `Final` in UI.
+- `OBSERVED`: UI indicates `1 of 6 submissions remaining today`.
+- `INFERRED`: Lowering IoU from `0.70` to `0.60` at fixed low confidence transferred positively, but gain magnitude is small (`+0.0010`).
+- `DECISION`: Promote `0.8808` as current baseline/final and use exactly one high-variance final pass.
+
+## 0.11 Last-Shot One-Variable Pass (2026-03-22, Sunday 11:29 CET)
+
+- `OBSERVED`: Built final candidate by changing one variable only from current best config:
+  - `CONF_THRESHOLD`: `0.06` -> `0.04`
+  - fixed: `IOU_THRESHOLD=0.60`, class-aware NMS
+- `OBSERVED`: Candidate artifact prepared and verified:
+  - `task3-Norgesgruppen/submission_task3_overnightA_conf004_iou060.zip` (`138 MB`)
+  - zip root contents: `run.py`, `best.onnx`
+  - syntax check: `python3 -m py_compile run.py` passed
+- `HYPOTHESIS`: Extra recall at `conf=0.04` can produce a final leaderboard jump larger than conservative `iou055` fallback.
+- `ROLLBACK`: No code rollback needed unless this underperforms; keep `0.8808` row selected final.
+- `RISK`: Higher FP rate may hurt precision and regress score despite fast runtime.
+- `DECISION`: Use `submission_task3_overnightA_conf004_iou060.zip` as the final all-out submission.
+
+## 0.12 Final Submission Outcome Update (2026-03-22, Sunday 11:37 CET)
+
+- `OBSERVED`: `submission_task3_overnightA_conf004_iou060.zip` completed in submission history (`22. mars 11:37–11:37` in UI).
+- `OBSERVED`: Score improved to `0.8818` (from previous final `0.8808`).
+- `OBSERVED`: Runtime `18.0s`; file size `138.2 MB`.
+- `OBSERVED`: Newest row is selected as `Final` in UI.
+- `OBSERVED`: UI indicates `0 of 6 submissions remaining today` and daily limit reached.
+- `INFERRED`: High-variance final pass produced a positive but small last-step gain (`+0.0010`).
+- `DECISION`: Freeze `0.8818` as final Task 3 score for this submission window.
+
 ## 1. Latest Session Update (2026-03-22, Sunday 02:05 CET)
 
 - Restored known-good NMS mode and changed one tuning lever only:
@@ -186,8 +307,6 @@
 
 ## 2. Next Actions
 
-1. Keep `0.7780` row selected as final in UI.
-2. Let overnight retraining complete, then review `~/task3-recovery/overnight_bigtrain.log` and `/home/kenneth/task3-overnight/overnight_summary.txt`.
-3. Benchmark the best overnight model with the same VM dry-run protocol and compare against `submission_task3_conf020.zip`.
-4. Submit next only if candidate is expected to beat `0.7780` by a meaningful margin; keep `submission_task3_iou065.zip` as optional fallback.
-5. Record every new submission result in `PastSubmissions.md` with exact timestamp + `OBSERVED/INFERRED/DECISION`.
+1. Keep `0.8818` row selected as final in UI.
+2. No submissions remain today; next action is docs sync commit/PR on next session.
+3. Preserve the `OBSERVED/INFERRED/DECISION` trail for this final result in `PastSubmissions.md`.

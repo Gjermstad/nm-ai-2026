@@ -1,8 +1,8 @@
 # AGENT.md — Task 3: NorgesGruppen Object Detection
 
 > NM i AI 2026 — Task 3 handoff/control file
-> Last updated: 2026-03-22 02:48 CET (Sunday, Oslo)
-> Status: `0.7780` remains selected final; one-variable `IOU_THRESHOLD=0.65` candidate is validated and packaged (`submission_task3_iou065.zip`) while overnight high-upside retraining is running on VM.
+> Last updated: 2026-03-22 11:37 CET (Sunday, Oslo)
+> Status: `0.8818` is selected final from `submission_task3_overnightA_conf004_iou060.zip`; daily submission quota is exhausted (`0/6` remaining today).
 
 ---
 
@@ -108,15 +108,15 @@ Run this exact sequence before making changes:
 
 ---
 
-## 4. Current Baseline Snapshot (Last Verified: 2026-03-22 02:10 Oslo)
+## 4. Current Baseline Snapshot (Last Verified: 2026-03-22 11:37 Oslo)
 
 Latest verified Task 3 checkpoint (from operator-shared submission + leaderboard screenshots):
-- Score: `0.7780` mAP
-- Submission runtime shown: `19.1s`
-- Submission artifact selected as final: `submission_task3_conf020.zip` (`138.2 MB`) containing `run.py` + `best.onnx`
-- Submission row time window shown: `22. mars, 02:09 — 22. mars, 02:10`
-- Previous best was `0.7626` (`17.5s` runtime), now superseded.
-- Working hypothesis update: class-aware NMS with lower confidence threshold (`0.25 -> 0.20`) improved score.
+- Score: `0.8818` mAP
+- Submission runtime shown: `18.0s`
+- Submission artifact selected as final: `submission_task3_overnightA_conf004_iou060.zip` (`138.2 MB`) containing `run.py` + `best.onnx`
+- Submission row time window shown: `22. mars, 11:37 — 22. mars, 11:37`
+- Previous best was `0.8808` (`17.7s` runtime), now superseded.
+- Working hypothesis update: final high-variance confidence reduction (`0.06 -> 0.04`) produced a positive last-step gain.
 
 Previous bounded pass result:
 - Change tested: class-aware NMS -> class-agnostic NMS only
@@ -141,6 +141,16 @@ Newest bounded candidate (not submitted yet):
   - `iou065` combo proxy `0.824723` (`+0.000370`)
 - Artifact prepared: `task3-Norgesgruppen/submission_task3_iou065.zip` (`138 MB`)
 - Decision: keep as optional fallback candidate; prioritize higher-upside retraining outputs before spending limited submissions.
+
+Most recent high-impact submission outcome:
+- Source model: `/home/kenneth/task3-overnight/ft_beststripped_img960_e220/weights/best.pt` exported to ONNX
+- Inference settings kept stable: class-aware NMS, `CONF_THRESHOLD=0.20`, `IOU_THRESHOLD=0.70`
+- Submitted artifact: `task3-Norgesgruppen/submission_task3_overnightA_conf004_iou060.zip`
+- Result: `0.8818` mAP at `18.0s` runtime (row `22. mars, 11:37 — 11:37`)
+
+Submission budget status:
+- UI shows `0 of 6 submissions remaining today` (daily limit reached, reset at midnight UTC).
+- Decision: stop submission attempts for today and carry forward documentation + reproducibility notes in next PR.
 
 Important:
 - Older `#157` and `0.1786` notes remain historical context only.
@@ -175,6 +185,12 @@ zip -j ~/submission_task3_guarded.zip run.py best.onnx
 zip -j ~/submission_task3_agnostic_nms.zip run.py best.onnx
 zip -j ~/submission_task3_conf020.zip run.py best.onnx
 zip -j ~/submission_task3_iou065.zip run.py best.onnx
+zip -j ~/submission_task3_overnightA_conf020.zip run.py best.onnx
+zip -j ~/submission_task3_overnightA_conf012.zip run.py best.onnx
+zip -j ~/submission_task3_overnightA_conf006.zip run.py best.onnx
+zip -j ~/submission_task3_overnightA_conf006_iou060.zip run.py best.onnx
+zip -j ~/submission_task3_overnightA_conf006_iou055.zip run.py best.onnx
+zip -j ~/submission_task3_overnightA_conf004_iou060.zip run.py best.onnx
 ```
 
 Download artifact from VM:
@@ -183,10 +199,16 @@ gcloud compute scp yolo-training-vm:~/submission_task3_guarded.zip ~/submission_
 gcloud compute scp yolo-training-vm:~/submission_task3_agnostic_nms.zip ~/submission_task3_agnostic_nms.zip --zone=europe-west1-c
 gcloud compute scp yolo-training-vm:~/submission_task3_conf020.zip ~/submission_task3_conf020.zip --zone=europe-west1-c
 gcloud compute scp yolo-training-vm:~/submission_task3_iou065.zip ~/submission_task3_iou065.zip --zone=europe-west1-c
+gcloud compute scp yolo-training-vm:~/submission_task3_overnightA_conf020.zip ~/submission_task3_overnightA_conf020.zip --zone=europe-west1-c
+gcloud compute scp yolo-training-vm:~/submission_task3_overnightA_conf012.zip ~/submission_task3_overnightA_conf012.zip --zone=europe-west1-c
+gcloud compute scp yolo-training-vm:~/submission_task3_overnightA_conf006.zip ~/submission_task3_overnightA_conf006.zip --zone=europe-west1-c
+gcloud compute scp yolo-training-vm:~/submission_task3_overnightA_conf006_iou060.zip ~/submission_task3_overnightA_conf006_iou060.zip --zone=europe-west1-c
+gcloud compute scp yolo-training-vm:~/submission_task3_overnightA_conf006_iou055.zip ~/submission_task3_overnightA_conf006_iou055.zip --zone=europe-west1-c
+gcloud compute scp yolo-training-vm:~/submission_task3_overnightA_conf004_iou060.zip ~/submission_task3_overnightA_conf004_iou060.zip --zone=europe-west1-c
 ```
 
-Then upload the chosen artifact in app UI (`submission_task3_guarded.zip` prior baseline, `submission_task3_agnostic_nms.zip` failed pass, `submission_task3_conf020.zip` current best, or `submission_task3_iou065.zip` optional candidate).
-Set the best-scoring row as final in UI (current final: `0.7780`).
+Then upload the chosen artifact in app UI.
+Set the best-scoring row as final in UI (current final: `0.8818`).
 
 ---
 
