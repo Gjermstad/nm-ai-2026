@@ -17,6 +17,7 @@ This was written after the competition submission window was over for us.
 - This repository stores source code and documentation for reproducibility.
 - The final competition zip artifact itself is not committed because it is larger than the standard GitHub file-size limit.
 - The tracked `task3-Norgesgruppen/run.py` is synchronized to the final best-scoring submission settings (`CONF_THRESHOLD=0.04`, `IOU_THRESHOLD=0.60`, class-aware NMS).
+- Final artifact release (zip download): `https://github.com/Gjermstad/nm-ai-2026/releases/tag/task3-final-08818`
 
 ## Starting point vs end point
 - Early verified baseline (2026-03-21 22:48): `0.1786` (rank around #301/313 on task board at that time).
