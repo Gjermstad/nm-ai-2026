@@ -2,7 +2,7 @@
 
 > NM i AI 2026 — Task 2 handoff/control file
 > Last updated: 2026-03-22 (Sunday, Oslo)
-> Status: PR #35 and PR #36 are merged and deployed on Cloud Run revision `astar-operator-00003-xmc`. Task2 history archive commit `cd86f02` (PR #52 branch content) is present on `origin/main`. Round 19 is active and baseline submitted (`5/5`). History-aware linear model v1 is integrated with strict runtime fallback.
+> Status: PR #35 and PR #36 are merged and deployed on Cloud Run revision `astar-operator-00003-xmc`. Task2 history archive commit `cd86f02` (PR #52 branch content) is present on `origin/main`. Round 19 is active and baseline submitted (`5/5`), latest seen query state `45/50` with `run_enabled=true`. History-aware linear model v1 is integrated with strict runtime fallback. Fresh follow-up PR is open: `#57`.
 
 ---
 
@@ -49,6 +49,9 @@ Persisted runtime state:
 
 Merged PR:
 - `https://github.com/Gjermstad/nm-ai-2026/pull/19`
+
+Open PR (this session):
+- `https://github.com/Gjermstad/nm-ai-2026/pull/57`
 
 ---
 

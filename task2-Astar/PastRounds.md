@@ -411,11 +411,12 @@ Round 17:
 - `OBSERVED`: Round 18 completed at `25.2` points (UI snapshot date `2026-03-21`), a material drop from Round 17 (`51.7`).
 - `INFERRED`: reliability of submissions stayed intact (`5/5`), but prediction quality variance remains high across round dynamics.
 - `OBSERVED`: Round 19 active status snapshot (`2026-03-22`, Oslo) shows:
-  - `queries.used/max=40/50`
+  - `queries.used/max=45/50`
   - `submitted_count=5`
   - `run_enabled=true`
   - `deadline_guard_enabled=true`
   - `last_error=null`
+  - `seconds_to_close=5545.098686`
 - `DECISION`: retain baseline-lock workflow as default safety pattern:
   1. early baseline submit for all seeds,
   2. one mid-round rebuild/resubmit checkpoint,

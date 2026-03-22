@@ -1,5 +1,26 @@
 # Progress Report: Astar Island Operator (Task 2)
 
+## 0. Session Closeout Snapshot (2026-03-22, Sunday ~03:20 Oslo)
+
+- Fresh Task 2 PR created for this implementation pass:
+  - `https://github.com/Gjermstad/nm-ai-2026/pull/57`
+  - branch: `codex/task2-linear-v1-pipeline`
+  - commits:
+    - `a20598f` (`task2: add linear-v1 history learning pipeline with safe fallback`)
+    - `1d934d7` (`task2: refresh replay eval report`)
+- Live hosted status snapshot (Round 19, closeout check):
+  - `queries.used/max=45/50`
+  - `submitted_count=5`
+  - `run_enabled=true`
+  - `deadline_guard_enabled=true`
+  - `last_error=null`
+  - `seconds_to_close=5545.098686`
+  - `active_round.id/number=597e60cf-d1a1-4627-ac4d-2a61da68b6df/19`
+- Session constraints respected:
+  - no submit endpoints called in this implementation pass,
+  - floor safety (`0.01`) and deadline guard behavior preserved,
+  - only Task 2 files committed; unrelated Task 3 changes left untouched.
+
 ## 0. Live Snapshot + Branch Clarification (2026-03-22, Sunday ~02:45 Oslo)
 
 - PR #52 branch content is now on `main`:
