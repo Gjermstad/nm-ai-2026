@@ -22,6 +22,32 @@
 - `INFERRED`: Potentially useful only for generic ideas (tiling/sliding-window patterns).
 - `DECISION`: Keep WALDO out of direct submission path; retain ONNX grocery-specific pipeline.
 
+## 0.3 Bounded IOU Pass + Overnight High-Upside Track (2026-03-22, Sunday 02:48 CET)
+
+- `OBSERVED`: Applied one-variable code change in `task3-Norgesgruppen/run.py`:
+  - `IOU_THRESHOLD`: `0.70` -> `0.65`
+  - kept `CONF_THRESHOLD=0.20`
+  - kept `CLASS_AGNOSTIC_NMS=False` (class-aware)
+- `OBSERVED`: VM full dry run on `248` images:
+  - runtime: `45.683s`
+  - predictions: `25,568`
+  - schema validity: `bad_records=0`
+- `OBSERVED`: Custom local proxy (IoU>=0.5 matching, weighted `70/30`) comparison:
+  - `conf020` combo proxy: `0.824353`
+  - `iou065` combo proxy: `0.824723` (`+0.000370`)
+- `OBSERVED`: Candidate artifact prepared and verified:
+  - VM: `~/submission_task3_iou065.zip`
+  - Local: `task3-Norgesgruppen/submission_task3_iou065.zip` (`138 MB`)
+  - archive root contains `run.py`, `best.onnx`
+- `OBSERVED` (operator instruction): only `4` submissions remain and priority is larger gains over marginal improvements.
+- `OBSERVED`: Overnight high-upside retraining job launched on VM at `2026-03-22 02:39 CET`:
+  - PID: `649159`
+  - script: `~/task3-recovery/overnight_bigtrain.py`
+  - log: `~/task3-recovery/overnight_bigtrain.log`
+  - summary target: `/home/kenneth/task3-overnight/overnight_summary.txt`
+- `INFERRED`: IOU pass is technically safe but expected leaderboard gain is likely small relative to remaining submission budget.
+- `DECISION`: Keep `0.7780` selected final for now; prioritize overnight retraining outputs for next submission candidate.
+
 ## 1. Latest Session Update (2026-03-22, Sunday 02:05 CET)
 
 - Restored known-good NMS mode and changed one tuning lever only:
@@ -161,6 +187,7 @@
 ## 2. Next Actions
 
 1. Keep `0.7780` row selected as final in UI.
-2. If another attempt is made, keep it one-variable only and predefine rollback criteria (`must beat 0.7780`).
-3. Continue using GCP aggressively for validation/sweeps (no token/credit limit) while preserving submission discipline.
-4. Record each submission result in `PastSubmissions.md` with exact timestamp + `OBSERVED/INFERRED/DECISION`.
+2. Let overnight retraining complete, then review `~/task3-recovery/overnight_bigtrain.log` and `/home/kenneth/task3-overnight/overnight_summary.txt`.
+3. Benchmark the best overnight model with the same VM dry-run protocol and compare against `submission_task3_conf020.zip`.
+4. Submit next only if candidate is expected to beat `0.7780` by a meaningful margin; keep `submission_task3_iou065.zip` as optional fallback.
+5. Record every new submission result in `PastSubmissions.md` with exact timestamp + `OBSERVED/INFERRED/DECISION`.
