@@ -168,6 +168,116 @@ For every submission cycle:
 - `INFERRED`: Candidate is low risk and valid, but expected gain is likely too small to prioritize with `4` submissions remaining.
 - `DECISION`: Hold as optional fallback candidate; prioritize higher-upside retraining outputs for next submit.
 
+### Entry T3-RESULT-013
+- Timestamp: `2026-03-22 10:40` (Oslo, submission completion shown in UI)
+- Evidence source: operator-shared submission history screenshot
+- `OBSERVED`: Submitted artifact `submission_task3_overnightA_conf020.zip` scored `0.8621`.
+- `OBSERVED`: Submission runtime `19.0s`; size `138.2 MB`.
+- `OBSERVED`: Submission row time window shown: `22. mars, 10:34 — 22. mars, 10:40`.
+- `OBSERVED`: Newest row is selected as final in UI.
+- `OBSERVED`: Previous final score was `0.7780`; delta is `+0.0841`.
+- `INFERRED`: Overnight retraining delivered a high-impact model upgrade while preserving runtime stability near prior best.
+- `INFERRED`: Assuming prior remaining attempts were `4`, remaining attempts are now approximately `3`.
+- `DECISION`: Promote `0.8621` as the new baseline/final and reserve remaining submissions for high-upside candidates only.
+
+### Entry T3-CANDIDATE-014
+- Timestamp: `2026-03-22 10:58` (CET, Oslo)
+- Evidence source: direct VM one-variable sweep logs + artifact packaging
+- `OBSERVED`: Ran one-variable sweep on overnight best ONNX with class-aware NMS and `IOU_THRESHOLD=0.70`; only `CONF_THRESHOLD` changed.
+- `OBSERVED`: Sweep result (`CONF -> combo proxy`):
+  - `0.12 -> 0.964259`
+  - `0.15 -> 0.962253`
+  - `0.18 -> 0.960124`
+  - `0.20 -> 0.958365`
+  - `0.22 -> 0.956549`
+  - `0.24 -> 0.954702`
+  - `0.26 -> 0.953064`
+- `OBSERVED`: Best setting was `CONF_THRESHOLD=0.12` with runtime `46.564s`, predictions `25,802`, `bad_records=0`.
+- `OBSERVED`: Candidate artifact built and verified:
+  - VM path: `~/submission_task3_overnightA_conf012.zip`
+  - Local path: `task3-Norgesgruppen/submission_task3_overnightA_conf012.zip`
+  - Size: `138 MB`
+  - Zip root contents: `run.py`, `best.onnx`
+- `INFERRED`: Lower threshold appears beneficial on the stronger retrained model and is a plausible next high-upside submission.
+- `DECISION`: If taking another attempt, prioritize `submission_task3_overnightA_conf012.zip` next.
+
+### Entry T3-CANDIDATE-015
+- Timestamp: `2026-03-22 11:15` (CET, Oslo)
+- Evidence source: direct VM one-variable CONF sweep logs + artifact packaging
+- `OBSERVED`: Continued one-variable CONF sweep on overnight best ONNX with class-aware NMS and `IOU_THRESHOLD=0.70`.
+- `OBSERVED`: Lower-confidence points outperformed earlier settings in proxy ranking; selected bounded candidate `CONF_THRESHOLD=0.06`.
+- `OBSERVED`: Candidate artifact built and verified:
+  - Local path: `task3-Norgesgruppen/submission_task3_overnightA_conf006.zip`
+  - Size: `138.2 MB`
+  - Zip root contents: `run.py`, `best.onnx`
+- `INFERRED`: Lowering confidence further may recover hard detections without breaking runtime budget.
+- `DECISION`: Submit `submission_task3_overnightA_conf006.zip` as next high-upside one-variable attempt.
+
+### Entry T3-RESULT-016
+- Timestamp: `2026-03-22 11:20` (Oslo, submission completion shown in UI)
+- Evidence source: operator-shared submission result screenshot
+- `OBSERVED`: Submitted artifact `submission_task3_overnightA_conf006.zip` scored `0.8798`.
+- `OBSERVED`: Submission runtime `18.0s`; size `138.2 MB`.
+- `OBSERVED`: Submission row time window shown: `22. mars, 11:19 — 22. mars, 11:20`.
+- `OBSERVED`: Newest row is selected as `Final` in UI.
+- `OBSERVED`: UI shows `2 of 6 submissions remaining today`.
+- `OBSERVED`: Previous final score was `0.8621`; delta is `+0.0177`.
+- `INFERRED`: Confidence reduction from `0.20`/`0.12` to `0.06` transferred strongly to leaderboard score while keeping fast runtime.
+- `DECISION`: Promote `0.8798` as baseline/final and reserve last two attempts for high-upside single-variable passes only.
+
+### Entry T3-CANDIDATE-017
+- Timestamp: `2026-03-22 11:22` (CET, Oslo)
+- Evidence source: direct VM one-variable IOU sweep logs at fixed conf
+- `OBSERVED`: Ran one-variable IOU sweep on overnight best ONNX at fixed `CONF_THRESHOLD=0.06` and class-aware NMS.
+- `OBSERVED`: Proxy ranking selected `IOU_THRESHOLD=0.60` as best; `IOU_THRESHOLD=0.55` was effectively tied and second-best.
+- `OBSERVED`: Candidate artifacts built and verified:
+  - Local path: `task3-Norgesgruppen/submission_task3_overnightA_conf006_iou060.zip`
+  - Local path: `task3-Norgesgruppen/submission_task3_overnightA_conf006_iou055.zip`
+  - Each archive size: `138.2 MB`
+  - Zip root contents: `run.py`, `best.onnx`
+- `INFERRED`: IOU tuning on top of strong low-conf baseline offers bounded upside with low implementation risk.
+- `DECISION`: Next submission candidate is `submission_task3_overnightA_conf006_iou060.zip`; keep `...iou055.zip` as final fallback only if needed.
+
+### Entry T3-RESULT-018
+- Timestamp: `2026-03-22 11:26` (Oslo, submission completion shown in UI)
+- Evidence source: operator-shared submission result screenshot
+- `OBSERVED`: Submitted artifact `submission_task3_overnightA_conf006_iou060.zip` scored `0.8808`.
+- `OBSERVED`: Submission runtime `17.7s`; size `138.2 MB`.
+- `OBSERVED`: Submission row time window shown: `22. mars, 11:25 — 22. mars, 11:26`.
+- `OBSERVED`: Newest row is selected as `Final` in UI.
+- `OBSERVED`: UI shows `1 of 6 submissions remaining today`.
+- `OBSERVED`: Previous final score was `0.8798`; delta is `+0.0010`.
+- `INFERRED`: Lowering IoU from `0.70` to `0.60` at fixed `CONF=0.06` helps, but only marginally.
+- `DECISION`: Keep `0.8808` as baseline/final and spend last attempt on a higher-variance one-variable pass.
+
+### Entry T3-CANDIDATE-019
+- Timestamp: `2026-03-22 11:29` (CET, Oslo)
+- Evidence source: local artifact derivation from latest final package
+- `OBSERVED`: Built one-variable final-shot candidate from latest final settings:
+  - base: `CONF_THRESHOLD=0.06`, `IOU_THRESHOLD=0.60`, class-aware NMS
+  - changed only: `CONF_THRESHOLD=0.04`
+- `OBSERVED`: Candidate artifact built and verified:
+  - Local path: `task3-Norgesgruppen/submission_task3_overnightA_conf004_iou060.zip`
+  - Size: `138 MB`
+  - Zip root contents: `run.py`, `best.onnx`
+  - Syntax check: `python3 -m py_compile run.py` passed
+- `HYPOTHESIS`: Extra recall at `conf=0.04` can produce a larger upside than conservative `iou055` fallback.
+- `ROLLBACK`: If score regresses, keep `0.8808` row selected as final (no code rollback needed).
+- `RISK`: Increased false positives may reduce precision enough to underperform despite stable runtime.
+- `DECISION`: Use `submission_task3_overnightA_conf004_iou060.zip` as the final all-out submission candidate.
+
+### Entry T3-RESULT-020
+- Timestamp: `2026-03-22 11:37` (Oslo, submission completion shown in UI)
+- Evidence source: operator-shared submission result screenshot
+- `OBSERVED`: Submitted artifact `submission_task3_overnightA_conf004_iou060.zip` scored `0.8818`.
+- `OBSERVED`: Submission runtime `18.0s`; size `138.2 MB`.
+- `OBSERVED`: Submission row time window shown: `22. mars, 11:37 — 22. mars, 11:37`.
+- `OBSERVED`: Newest row is selected as `Final` in UI.
+- `OBSERVED`: Previous final score was `0.8808`; delta is `+0.0010`.
+- `OBSERVED`: UI shows `0 of 6 submissions remaining today` and daily limit reached.
+- `INFERRED`: The high-variance last-shot pass was positive and became the day’s best final result.
+- `DECISION`: Freeze `0.8818` as final Task 3 result for today; continue only with documentation sync and next-session planning.
+
 ## 5. Active Hypothesis Queue
 
 ### HYP-001: ONNX decoding/parsing correctness
