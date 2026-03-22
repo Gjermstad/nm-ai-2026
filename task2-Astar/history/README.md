@@ -32,6 +32,18 @@ This folder stores machine-readable historical exports from authenticated Task 2
 - `summary/api_snapshot_meta.json`
   - Snapshot metadata (timestamp, file names, error count).
 
+- `models/latest_linear_v1.json`
+  - Runtime-consumable learned artifact (lightweight linear corrections + query weights).
+
+- `summary/replay_eval_linear_v1.json`
+  - Offline replay report comparing heuristic baseline vs learned artifact.
+
+- `train_linear_model.py`
+  - Deterministic trainer that builds `models/latest_linear_v1.json` from summary files.
+
+- `replay_evaluate_model.py`
+  - Offline evaluator that replays completed rounds from raw snapshot and reports KL/xent/L1/Brier deltas.
+
 ## Refresh Command
 
 Set token in your shell, then run:
@@ -40,6 +52,8 @@ Set token in your shell, then run:
 cd task2-Astar/history
 ASTAR_ACCESS_TOKEN='<JWT>' python3 export_api_snapshot.py
 python3 build_diagnostics_from_snapshot.py
+python3 train_linear_model.py
+python3 replay_evaluate_model.py
 ```
 
 Expected note:

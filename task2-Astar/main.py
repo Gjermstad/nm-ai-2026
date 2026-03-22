@@ -127,6 +127,16 @@ def guard_set(body: DeadlineGuardRequest) -> Dict[str, Any]:
     return service.set_deadline_guard(body.enabled)
 
 
+@app.get("/model/status")
+def model_status() -> Dict[str, Any]:
+    return service.get_model_status()
+
+
+@app.post("/model/reload")
+def model_reload() -> Dict[str, Any]:
+    return service.reload_model()
+
+
 @app.post("/auth/token")
 def auth_token(body: TokenRequest) -> Dict[str, Any]:
     if os.getenv("ALLOW_TOKEN_UPDATE", "true").lower() not in {"1", "true", "yes"}:

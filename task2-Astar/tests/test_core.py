@@ -4,6 +4,7 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from core import (
+    apply_learned_adjustments,
     cell_distribution,
     clamp_viewport,
     normalize_with_floor,
@@ -53,6 +54,70 @@ def test_near_settlement_aggressive_prior_is_bounded():
     near = prior_distribution(initial_code=0, near_settlement=True, aggressive=True)
     assert near[0] >= 0.65
     assert (near[1] + near[2] + near[3]) <= 0.3
+
+
+def test_low_evidence_tail_guard_caps_rare_tails():
+    dist = cell_distribution(
+        initial_code=11,
+        observed_counts=[0, 0, 0, 0, 0, 0],
+        near_settlement=True,
+        aggressive=True,
+        floor=0.01,
+    )
+    assert dist[2] <= 0.03 + 1e-9
+    assert dist[3] <= 0.04 + 1e-9
+    assert dist[5] <= 0.015 + 1e-9
+    assert abs(sum(dist) - 1.0) < 1e-8
+
+
+def test_low_evidence_tail_guard_skips_when_rare_class_observed():
+    dist = cell_distribution(
+        initial_code=11,
+        observed_counts=[0, 0, 3, 0, 0, 0],
+        near_settlement=False,
+        aggressive=False,
+        floor=0.01,
+    )
+    assert dist[2] > 0.03
+
+
+def test_apply_learned_adjustments_keeps_distribution_valid():
+    base = [0.84, 0.05, 0.02, 0.03, 0.04, 0.02]
+    model = {
+        "prediction": {
+            "max_abs_correction": 0.12,
+            "global_class_bias_correction": [0.02, 0.01, -0.02, -0.02, 0.01, 0.0],
+            "terrain_prior_corrections": {
+                "11": {
+                    "far": [0.01, 0.01, -0.01, -0.01, 0.0, 0.0],
+                    "near": [0.0, 0.02, -0.01, -0.01, 0.0, 0.0],
+                }
+            },
+            "confidence_temperature": 1.1,
+        }
+    }
+    adjusted = apply_learned_adjustments(
+        distribution=base,
+        initial_code=11,
+        near_settlement=True,
+        model=model,
+        floor=0.01,
+    )
+    assert len(adjusted) == 6
+    assert abs(sum(adjusted) - 1.0) < 1e-8
+    assert min(adjusted) >= 0.01
+
+
+def test_apply_learned_adjustments_no_model_is_noop():
+    base = [0.84, 0.05, 0.02, 0.03, 0.04, 0.02]
+    adjusted = apply_learned_adjustments(
+        distribution=base,
+        initial_code=11,
+        near_settlement=False,
+        model=None,
+        floor=0.01,
+    )
+    assert adjusted == base
 
 
 def test_validate_prediction_tensor_passes():

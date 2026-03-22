@@ -372,3 +372,51 @@ Round 17:
 3. `DECISION`: increase settlement recovery in repeatedly observed dynamic clusters instead of increasing global dynamic priors.
 4. `DECISION`: when available, use early-round observed entropy signals to decide whether to keep conservative vs moderately dynamic behavior.
 5. `DECISION`: keep this API archive section updated after every completed round (including rounds with no submission).
+
+### 11.8 Applied Calibration Pass (2026-03-22, Round 19 Active)
+
+- `OBSERVED`: API summary + diagnostics continue to show rare-class overprediction on submitted rounds:
+  - Round 17 class deltas (`prediction - GT`): `Port +0.0422`, `Ruin +0.0502`, `Mountain +0.0255`.
+  - Cross-submitted aggregate deltas: `Port +0.0463`, `Ruin +0.0547`, `Mountain +0.0258`.
+- `DECISION`: implement a minimal low-evidence rare-tail guard in `core.py`:
+  - applies only when `observed_total <= 1`, no direct `Port/Ruin/Mountain` observations, and non-`Port/Ruin/Mountain` initial terrain.
+  - enforce caps `Port <= 0.03`, `Ruin <= 0.04`, `Mountain <= 0.015`.
+  - redistribute reclaimed mass to `Empty`/`Settlement`/`Forest`, then re-normalize with existing floor logic.
+- `OBSERVED`: local measurable check (plains, near-settlement, aggressive, zero observations):
+  - before patch: `[0.746, 0.105, 0.040, 0.054, 0.035, 0.020]` => rare-tail mass `0.114`.
+  - after patch: `[0.762, 0.109, 0.030, 0.040, 0.044, 0.015]` => rare-tail mass `0.085`.
+- `OBSERVED`: evidence override preserved:
+  - with direct Port observations (`observed_counts=[0,0,3,0,0,0]`), Port stays high (`0.265`), confirming cap skip logic.
+- `ASSUMPTION`: this conservative correction should reduce KL loss from diffuse rare tails on low-evidence cells while preserving upside where rare-class evidence is explicit.
+
+### 11.9 History-Aware Linear Model v1 (2026-03-22)
+
+- `OBSERVED`: deterministic trainer and artifact now exist:
+  - trainer: `task2-Astar/history/train_linear_model.py`
+  - artifact: `task2-Astar/history/models/latest_linear_v1.json`
+- `DECISION`: runtime uses learned corrections only when artifact validation passes; otherwise fallback remains heuristic-safe.
+- `OBSERVED`: replay evaluation file generated:
+  - `task2-Astar/history/summary/replay_eval_linear_v1.json`
+  - rows evaluated: `136000` completed-round cells (`1..17`).
+- `OBSERVED`: replay baseline vs learned deltas (`learned - baseline`):
+  - cross-entropy: `-0.0604`
+  - KL: `-0.0604`
+  - L1: `-0.0251`
+  - Brier: `-0.0133`
+- `OBSERVED`: all replay gates passed (`cross_entropy_non_regression`, `kl_non_regression`, `l1_non_regression`, `brier_non_regression` = `true`).
+- `DECISION`: promote linear v1 as default artifact for between-round deployment, with one emergency hotfix max mid-round only for severe regressions.
+
+### 11.10 Round 18 Drop + Round 19 Baseline-Lock Lesson
+
+- `OBSERVED`: Round 18 completed at `25.2` points (UI snapshot date `2026-03-21`), a material drop from Round 17 (`51.7`).
+- `INFERRED`: reliability of submissions stayed intact (`5/5`), but prediction quality variance remains high across round dynamics.
+- `OBSERVED`: Round 19 active status snapshot (`2026-03-22`, Oslo) shows:
+  - `queries.used/max=40/50`
+  - `submitted_count=5`
+  - `run_enabled=true`
+  - `deadline_guard_enabled=true`
+  - `last_error=null`
+- `DECISION`: retain baseline-lock workflow as default safety pattern:
+  1. early baseline submit for all seeds,
+  2. one mid-round rebuild/resubmit checkpoint,
+  3. one pre-deadline rebuild/resubmit checkpoint.
