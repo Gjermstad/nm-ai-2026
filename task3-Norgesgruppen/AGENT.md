@@ -1,8 +1,8 @@
 # AGENT.md — Task 3: NorgesGruppen Object Detection
 
 > NM i AI 2026 — Task 3 handoff/control file
-> Last updated: 2026-03-22 02:05 CET (Sunday, Oslo)
-> Status: Class-agnostic pass failed (`0.7619`); new class-aware `CONF_THRESHOLD=0.20` candidate packaged as `submission_task3_conf020.zip`.
+> Last updated: 2026-03-22 02:22 CET (Sunday, Oslo)
+> Status: `CONF_THRESHOLD=0.20` class-aware pass improved score to `0.7780`; newest row is selected as final.
 
 ---
 
@@ -102,28 +102,29 @@ Run this exact sequence before making changes:
 
 ---
 
-## 4. Current Baseline Snapshot (Last Verified: 2026-03-22 01:02 Oslo)
+## 4. Current Baseline Snapshot (Last Verified: 2026-03-22 02:10 Oslo)
 
 Latest verified Task 3 checkpoint (from operator-shared submission + leaderboard screenshots):
-- Score: `0.7626` mAP
-- Rank: `#249` (operator reported, previously `#309`)
-- Submission runtime shown: `17.5s`
-- Submission artifact: `submission_task3_guarded.zip` (`138.2 MB`) containing `run.py` + `best.onnx`
-- Working hypothesis update: ONNX post-processing fixes (letterbox-aware scaling + class-aware NMS + clipping) were the primary improvement driver.
+- Score: `0.7780` mAP
+- Submission runtime shown: `19.1s`
+- Submission artifact selected as final: `submission_task3_conf020.zip` (`138.2 MB`) containing `run.py` + `best.onnx`
+- Submission row time window shown: `22. mars, 02:09 — 22. mars, 02:10`
+- Previous best was `0.7626` (`17.5s` runtime), now superseded.
+- Working hypothesis update: class-aware NMS with lower confidence threshold (`0.25 -> 0.20`) improved score.
 
 Previous bounded pass result:
 - Change tested: class-aware NMS -> class-agnostic NMS only
 - Submission result (2026-03-22 01:52 Oslo): `0.7619` score, `18.9s` runtime, `138.2 MB` file size.
 - Outcome: no improvement vs baseline `0.7626`; baseline remains selected.
 
-Current bounded follow-up candidate (not submitted yet):
+Most recent successful bounded pass:
 - Change tested: keep class-aware NMS, lower `CONF_THRESHOLD` from `0.25` to `0.20`
 - VM full dry run: `45.768s` on `248` images
 - Predictions: `25,712` (baseline `23,956`)
 - Local proxy eval on VM:
   - baseline combo AP proxy `0.761466`
   - candidate combo AP proxy `0.782002`
-- Candidate artifact: `task3-Norgesgruppen/submission_task3_conf020.zip`
+- Artifact submitted: `task3-Norgesgruppen/submission_task3_conf020.zip`
 
 Important:
 - Older `#157` and `0.1786` notes remain historical context only.
@@ -143,6 +144,7 @@ From prior working notes:
 3. Ultralytics patch previously needed in VM env for torch 2.6.0 loader behavior.
 4. `data.yaml` was previously required with absolute path on VM.
 5. `numpy<2` and uninstalling `ray` were prior environment stabilizers.
+6. External model idea review (`WALDO`): useful as inspiration for tiling/deployment patterns, but not a direct model swap for Task 3 due class/domain mismatch.
 
 Treat these as prior operational notes; re-validate before relying on them in a fresh environment.
 
@@ -165,7 +167,8 @@ gcloud compute scp yolo-training-vm:~/submission_task3_agnostic_nms.zip ~/submis
 gcloud compute scp yolo-training-vm:~/submission_task3_conf020.zip ~/submission_task3_conf020.zip --zone=europe-west1-c
 ```
 
-Then upload the chosen artifact in app UI (`submission_task3_guarded.zip` rollback-safe baseline, `submission_task3_agnostic_nms.zip` failed pass, or `submission_task3_conf020.zip` current candidate).
+Then upload the chosen artifact in app UI (`submission_task3_guarded.zip` prior baseline, `submission_task3_agnostic_nms.zip` failed pass, or `submission_task3_conf020.zip` current best).
+Set the best-scoring row as final in UI (current final: `0.7780`).
 
 ---
 

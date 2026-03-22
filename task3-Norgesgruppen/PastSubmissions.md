@@ -122,6 +122,25 @@ For every submission cycle:
 - `INFERRED`: Lower confidence threshold may recover recall/classification opportunities while keeping runtime stable.
 - `DECISION`: Submit exactly one bounded follow-up using `submission_task3_conf020.zip`; keep `0.7626` selected final unless this beats it.
 
+### Entry T3-RESULT-009
+- Timestamp: `2026-03-22 02:10` (Oslo, submission completion shown in UI)
+- Evidence source: operator-shared submission history screenshot
+- `OBSERVED`: Candidate submission score `0.7780` (improved from `0.7626`).
+- `OBSERVED`: Candidate runtime `19.1s`.
+- `OBSERVED`: Candidate size `138.2 MB`.
+- `OBSERVED`: Submission row time window shown: `22. mars, 02:09 — 22. mars, 02:10`.
+- `OBSERVED`: This newest row is selected as final in UI.
+- `INFERRED`: Lowering confidence threshold while keeping class-aware NMS yielded a net gain on organizer scoring.
+- `DECISION`: Promote `submission_task3_conf020.zip` as current baseline/final; only continue with one-variable bounded attempts.
+
+### Entry T3-IDEA-010
+- Timestamp: `2026-03-22 02:22` (Oslo)
+- Evidence source: peer tip + repository review (`stephansturges/WALDO`)
+- `OBSERVED`: WALDO targets overhead/drone-style objects and different class space.
+- `INFERRED`: Direct model swap is not practical for Task 3 grocery SKU detection.
+- `INFERRED`: Only selected implementation ideas (e.g., tiling/sliding-window patterns) may be reusable.
+- `DECISION`: Keep WALDO out of immediate submission path; continue optimizing existing Task 3 ONNX pipeline.
+
 ## 5. Active Hypothesis Queue
 
 ### HYP-001: ONNX decoding/parsing correctness
