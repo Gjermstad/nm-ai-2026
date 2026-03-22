@@ -314,7 +314,8 @@ POST /employee:
   email: REQUIRED when userType is "STANDARD" (Tripletex-user requires email — causes 422 "email: Må angis for Tripletex-brukere" if omitted).
          Include email if provided in the task; if not provided, omit userType or set userType to "NO_ACCESS".
   Optional: employeeNumber ("string" — internal staff number, e.g. "EMP-001" or "12345"; include if task provides it),
-            dateOfBirth ("YYYY-MM-DD")
+            dateOfBirth ("YYYY-MM-DD" — birth date if provided in task or PDF),
+            nationalIdentityNumber ("11-digit string" — Norwegian national identity number (personnummer / fødselsnummer / Sozialversicherungsnummer / personnummer); ALWAYS include if provided in task or PDF)
   userType: "STANDARD" (default, requires email) | "EXTENDED" (administrator/kontoadministrator/admin) | "NO_ACCESS"
   department.id: ALWAYS do GET /department first (filter by name if a department is named in the task).
     CRITICAL: If GET /department returns count: 0 (department not found), you MUST create it first:
@@ -347,7 +348,7 @@ POST /employee/employment/details  (set salary, employment percentage, job code)
             remunerationType ("MONTHLY_WAGE" | "HOURLY_WAGE" | "FEE" | "PIECEWORK_WAGE"),
             employmentType ("ORDINARY" | "MARITIME" | "FREELANCE"),
             employmentForm ("PERMANENT" | "TEMPORARY"),
-            workingHoursScheme ("NOT_SHIFT" is the default for office workers),
+            workingHoursScheme (valid values: "NOT_SHIFT" standard daytime office work, "ROUND_THE_CLOCK", "SHIFT_365", "OFFSHORE_336", "CONTINUOUS", "OTHER_SHIFT", "NOT_CHOSEN" if unspecified; use "NOT_SHIFT" for normal office/desk work),
             occupationCode ({{"id": OCCUPATION_CODE_ID}}) — job code (Berufsschlüssel/yrkeskode)
   Flow: POST /employee/employment → POST /employee/employment/details with employmentId
   Example: {{"employment": {{"id": "$responses.N.value.id"}}, "date": "2024-01-01",
@@ -633,8 +634,8 @@ The following endpoints return 404 or 405 and must never be called:
   PUT /invoice/{{id}}/:reversePayment    → 404. Does NOT exist.
   POST /invoice/payment                  → 405. Does NOT exist. Use PUT /invoice/{{id}}/:payment instead.
   If a task asks to reverse a bank return (bankretur) so the invoice shows as outstanding again:
-    Use PUT /invoice/$responses.N.values.0.id/:createCreditNote to reverse, then re-invoice if needed.
-    Or post a corrective ledger voucher. Do NOT use :reversePayment.
+    Use PUT /ledger/voucher/{voucherId}/:reverse?date=TODAY (see bank return reversal pattern above).
+    Do NOT use :reversePayment. Do NOT use :createCreditNote (that cancels the invoice, not restores it).
 
 === BETA ENDPOINTS — NEVER USE (returns 403 Forbidden) ===
 The following endpoints are tagged [BETA] in the Tripletex API and will always return 403.
@@ -644,7 +645,8 @@ Do NOT generate calls to any of these — they will always fail:
   DELETE /project/{{id}}           → BETA, always 403. Cannot delete projects via API.
   PUT /order/orderline/{{id}}      → BETA, always 403. Cannot update order lines via API.
   DELETE /order/orderline/{{id}}   → BETA, always 403. Cannot delete order lines via API.
-  POST /travelExpense/cost         → BETA, always 403. Cannot add individual expense cost lines via API.
+  POST /travelExpense/cost         → BETA, always 403 in validator. Cannot add individual expense cost lines via API.
+    If you need to add costs: use POST /travelExpense (header only). Do NOT try to add individual cost lines.
 If the task asks you to do something only possible via a BETA endpoint, skip that action entirely.
 
 === FIELDS PARAM RULES ===
