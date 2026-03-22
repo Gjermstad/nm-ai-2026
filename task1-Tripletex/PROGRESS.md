@@ -1,17 +1,22 @@
 # Progress Report: Tripletex AI Accounting Agent
 
-## 1. Current state (2026-03-22 ~00:00 CET)
+## 1. Current state (2026-03-22 ~11:00 CET)
 
-All PRs up to #33 merged and deployed. Score: unknown (latest logs show auth errors). 29/30 task types seen. 1 remaining task type undiscovered.
+PR #64 merged and deployed (revision `tripletex-agent-00059-tvj`). Score: **35.8**, rank **#223** of 402. 30/30 task types seen.
 
-**Known open bugs (pre-this-PR):**
-- Duplicate entity creation: GET /customer finds entity but Gemini still POSTs → cascade failure (fixed this PR: SEARCH FIRST for customer + department)
-- Same issue for GET /employee: found but still POSTed, downstream refs wrong response index (strengthened this PR)
-- Auth errors (0/10, 0/7): fixed by `gcloud run services add-iam-policy-binding --member allUsers --role roles/run.invoker`
+**Overnight session findings (2026-03-22 02:00–07:30 CET):**
+- **PR #61 CRITICAL**: `{voucherId}` in f-string `build_llm_prompt()` → `NameError` → HTTP 500 on every request from 01:14 AM until fixed. ALL submissions during that window returned 0%. Fixed by escaping as `{{voucherId}}`.
+- **PR #58**: Deploy command `--no-allow-unauthenticated` was stripping IAM binding → 401 on all validator calls. Fixed to `--allow-unauthenticated`.
+- **PR #55**: `GET /employee/employment/occupationCode?code=4110` silently ignores the `code` filter and returns all 140 codes. Fixed by instructing Gemini to fetch all and scan.
+- **PR #64**: Three 422 errors:
+  1. `POST /activity` with `"project"` field → doesn't exist, activities are global
+  2. Supplier not found (count=0) → must create supplier before invoice
+  3. Account 1500 in manual voucher → needs `customer` on posting row
+- **Score jump**: 28.7 → 35.8 after fixes. Auto-submit loop ran 5h (02:34–07:24 CET).
 
 **Deployed URL:** `https://tripletex-agent-997219197351.europe-north1.run.app`
 
-**Tier 3 tasks** live since ~11:00 CET March 21. Competition ends March 22 15:00 CET (~16h remaining).
+**Competition ends:** March 22 15:00 CET (~4h remaining).
 
 ---
 
@@ -199,36 +204,66 @@ All PRs up to #33 merged and deployed. Score: unknown (latest logs show auth err
 
 ## 9. Operational workflow (how to deploy, submit, and read logs)
 
-### After merging a PR — deploy steps (Cloud Shell)
-Open Cloud Shell: https://shell.cloud.google.com/?project=ai-nm26osl-1730&show=terminal
-
+### After merging a PR — deploy steps (local Mac terminal)
 ```bash
-cd ~/nm-ai-2026-1 && git pull
+cd /Users/kenneth/git/annet/nmiai/nm-ai-2026 && git pull
 ```
 ```bash
-cd ~/nm-ai-2026-1/task1-Tripletex && gcloud run deploy tripletex-agent --source . --region europe-north1 --project ai-nm26osl-1730 --allow-unauthenticated
+cd /Users/kenneth/git/annet/nmiai/nm-ai-2026/task1-Tripletex && gcloud run deploy tripletex-agent --source . --region europe-north1 --project ai-nm26osl-1730 --allow-unauthenticated --quiet
 ```
 
 ⚠️ **CRITICAL: use `--allow-unauthenticated`** (NOT `--no-allow-unauthenticated`).
 Using `--no-allow-unauthenticated` strips the allUsers IAM binding and all validator calls return
 "The request was not authenticated" → 0% on every submission. Confirmed broken on 2026-03-22.
 
-If you accidentally deploy with `--no-allow-unauthenticated`, fix immediately:
+If you accidentally deploy without `--allow-unauthenticated`, fix immediately:
 ```bash
 gcloud run services add-iam-policy-binding tripletex-agent --member=allUsers --role=roles/run.invoker --region=europe-north1 --project=ai-nm26osl-1730
 ```
 
-### Submit (competition page)
+### Submit (competition page — browser console)
 URL: https://app.ainm.no/submit/tripletex
-- Enter endpoint: `https://tripletex-agent-997219197351.europe-north1.run.app`
-- Click Submit 4 times to queue 4 runs in parallel (each run is a different random task)
-- Sleep ~120s for all to finish, then read logs
 
-### Read logs (local terminal — gcloud must be authenticated)
-```bash
-gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=tripletex-agent" --limit=300 --format="value(textPayload)" --freshness=15m --project=ai-nm26osl-1730
+Paste in browser console to submit 4 at once (session cookie included automatically via `credentials: include`):
+```javascript
+const ENDPOINT = 'https://tripletex-agent-997219197351.europe-north1.run.app';
+const TASK_ID = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
+Promise.all(Array(4).fill(null).map(() =>
+  fetch(`https://api.ainm.no/tasks/${TASK_ID}/submissions`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    credentials: 'include',
+    body: JSON.stringify({endpoint_url: ENDPOINT, endpoint_api_key: null})
+  }).then(r => r.json())
+)).then(results => { window._lastSubmitResults = results; });
 ```
-Note: if local gcloud returns nothing, navigate to Cloud Shell and run the same command there.
+Wait ~90s, reload page to see results.
+
+Auto-submit loop (4 every 3 minutes — for overnight/unattended running, requires browser tab open):
+```javascript
+window._autoSubmitRunning = true;
+(async function loop() {
+  while (window._autoSubmitRunning) {
+    const ENDPOINT = 'https://tripletex-agent-997219197351.europe-north1.run.app';
+    const TASK_ID = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
+    await Promise.all(Array(4).fill(null).map(() =>
+      fetch(`https://api.ainm.no/tasks/${TASK_ID}/submissions`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        credentials: 'include',
+        body: JSON.stringify({endpoint_url: ENDPOINT, endpoint_api_key: null})
+      })
+    ));
+    console.log('Batch done, sleeping 3m...');
+    await new Promise(r => setTimeout(r, 3 * 60 * 1000));
+  }
+})();
+// To stop: window._autoSubmitRunning = false
+```
+
+### Read logs (local Mac terminal)
+```bash
+gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=tripletex-agent" --limit=300 --format="value(timestamp,textPayload)" --freshness=15m --project=ai-nm26osl-1730
+```
 
 ### Identify failures in logs
 Look for:
@@ -239,6 +274,10 @@ CALL N: skipping — unresolved placeholder
 WARNING: Could not parse repair plan
 ```
 Fast completions (< 15s) with 0% score = 403 token expired (unfixable) or IAM auth error (fixable).
+
+### F-string safety rule (CRITICAL)
+`build_llm_prompt()` in main.py is a Python f-string. ALL literal `{` and `}` in prompt text must be
+escaped as `{{` and `}}`. Forgetting this causes `NameError` → HTTP 500 on every request (silent, hard to notice).
 
 ---
 

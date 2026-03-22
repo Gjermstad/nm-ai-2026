@@ -1,7 +1,7 @@
 # AGENT.md — Task 1: Tripletex AI Accounting Agent
 > NM i AI 2026 — Solo competitor, frontend student (Kristiania, 6th semester)
-> Last updated: 2026-03-21 ~23:00 CET
-> Status: PR #27 merged — employee sub-resources, tool_code ban, bank return reversal. 28/30 task types seen. Score: 23.3, rank #218.
+> Last updated: 2026-03-22 ~11:00 CET
+> Status: PR #64 merged — activity/supplier/currency fixes. 30/30 task types seen. Score: 35.8, rank #223.
 
 ---
 
@@ -61,23 +61,31 @@
 - **Min instances:** 1 during active competition windows (prevents cold starts)
 
 ### ⚠️ CRITICAL: Correct working directory
-The Cloud Shell working directory for ALL git and deploy operations is:
+Local Mac repo is at:
 ```
-~/nm-ai-2026-1
+/Users/kenneth/git/annet/nmiai/nm-ai-2026
 ```
-**NOT** `~/nm-ai-2026`. Using the wrong directory deploys stale code.
+Cloud Shell repo (alternate) is at `~/nm-ai-2026-1` — **NOT** `~/nm-ai-2026`.
 
-### Deploy Command (Cloud Shell only — two separate steps)
+### Deploy Command (from local Mac terminal — preferred)
 ```bash
-cd ~/nm-ai-2026-1 && git pull
+cd /Users/kenneth/git/annet/nmiai/nm-ai-2026 && git pull
 ```
 ```bash
-cd ~/nm-ai-2026-1/task1-Tripletex && gcloud run deploy tripletex-agent --source . --region europe-north1 --project ai-nm26osl-1730 --allow-unauthenticated
+cd /Users/kenneth/git/annet/nmiai/nm-ai-2026/task1-Tripletex && gcloud run deploy tripletex-agent --source . --region europe-north1 --project ai-nm26osl-1730 --allow-unauthenticated --quiet
 ```
 
-### Log reading (Cloud Shell)
+⚠️ **CRITICAL: use `--allow-unauthenticated`** (NOT `--no-allow-unauthenticated`).
+`--no-allow-unauthenticated` strips the `allUsers → roles/run.invoker` IAM binding → every validator call returns 401 "The request was not authenticated" → 0% on all submissions. Confirmed broken on 2026-03-22 early AM.
+
+If you accidentally deploy without `--allow-unauthenticated`, fix immediately:
 ```bash
-gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=tripletex-agent" --limit=200 --format="value(textPayload)" --freshness=10m
+gcloud run services add-iam-policy-binding tripletex-agent --member=allUsers --role=roles/run.invoker --region=europe-north1 --project=ai-nm26osl-1730
+```
+
+### Log reading (local Mac terminal)
+```bash
+gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=tripletex-agent" --limit=300 --format="value(timestamp,textPayload)" --freshness=15m --project=ai-nm26osl-1730
 ```
 
 ### Submission URL
@@ -85,10 +93,50 @@ gcloud logging read "resource.type=cloud_run_revision AND resource.labels.servic
 https://tripletex-agent-997219197351.europe-north1.run.app
 ```
 
+### Submit loop (browser console — competition page)
+URL: https://app.ainm.no/submit/tripletex
+
+Submit 4 at once via browser console (uses session cookie automatically):
+```javascript
+const ENDPOINT = 'https://tripletex-agent-997219197351.europe-north1.run.app';
+const TASK_ID = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
+Promise.all(Array(4).fill(null).map(() =>
+  fetch(`https://api.ainm.no/tasks/${TASK_ID}/submissions`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    credentials: 'include',
+    body: JSON.stringify({endpoint_url: ENDPOINT, endpoint_api_key: null})
+  }).then(r => r.json())
+)).then(results => { window._lastSubmitResults = results; });
+```
+Wait ~90-120s, then reload the page to see results.
+
+Auto-submit loop (runs 4 every 3 minutes while browser tab stays open):
+```javascript
+window._autoSubmitRunning = true;
+window._autoSubmitCount = 0;
+(async function loop() {
+  while (window._autoSubmitRunning) {
+    const ENDPOINT = 'https://tripletex-agent-997219197351.europe-north1.run.app';
+    const TASK_ID = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
+    await Promise.all(Array(4).fill(null).map(() =>
+      fetch(`https://api.ainm.no/tasks/${TASK_ID}/submissions`, {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        credentials: 'include',
+        body: JSON.stringify({endpoint_url: ENDPOINT, endpoint_api_key: null})
+      })
+    ));
+    window._autoSubmitCount += 4;
+    console.log('Submitted batch, total:', window._autoSubmitCount);
+    await new Promise(r => setTimeout(r, 3 * 60 * 1000));
+  }
+})();
+// To stop: window._autoSubmitRunning = false
+```
+
 ### GitHub Repo
 - `https://github.com/Gjermstad/nm-ai-2026`
 - Local working directory on Mac: `/Users/kenneth/git/annet/nmiai/nm-ai-2026`
-- Always `git pull` in `~/nm-ai-2026-1` before deploying
 
 ---
 
@@ -209,9 +257,26 @@ Prompt → Gemini → full call plan → execute all → if 422/409 errors → G
 
 ---
 
-## 6. CURRENT CODE STATE (post PR #27)
+## 6. CURRENT CODE STATE (post PR #64)
 
-### What is deployed (all merged PRs up to #27)
+### Overnight session (2026-03-22 02:00–07:30 CET) — key bugs found and fixed
+
+**PR #53** — nationalIdentityNumber on employee, workingHoursScheme valid values. Also accidentally introduced the `{voucherId}` f-string crash (fixed in #61).
+
+**PR #55** — occupationCode lookup: `GET /employee/employment/occupationCode?code=4110` silently ignores the `code` param and returns all 140 codes. Fixed by instructing Gemini to fetch ALL codes without filter, then scan the list.
+
+**PR #58** — deploy command: changed `--no-allow-unauthenticated` → `--allow-unauthenticated` in AGENT.md so future deploys don't break IAM.
+
+**PR #61 — CRITICAL f-string crash** — PR #53 added text `Use PUT /ledger/voucher/{voucherId}/:reverse?date=TODAY` inside `build_llm_prompt()` which is a Python f-string. Python tried to evaluate `voucherId` as a variable → `NameError` → HTTP 500 on every single request from ~01:14 AM until fixed. Fixed by escaping as `{{voucherId}}`. This is why all submissions from 01:14–02:40 AM returned 0%.
+
+**PR #64 — 3 recurring 422 bugs:**
+- `POST /activity`: do NOT include `project` or `projectId` — activities are global, not project-linked at creation time
+- Supplier not found (count=0): must create supplier first with `POST /supplier` before creating invoice
+- Account 1500 (Kundefordringer) in manual voucher: requires `customer` field on that posting row. Added full disagio/agio pattern.
+
+**Auto-submit loop results:** Browser loop ran 02:34–07:24 CET (5 hours). Score jumped from 28.7 → 35.8 after fixes were deployed.
+
+### What is deployed (all merged PRs up to #64)
 
 **Placeholder resolution — three patterns supported (applied in order):**
 1. `$responses.N.value.FIELD.SUBFIELD` — nested field (e.g. `voucher.id`) — added PR #26
@@ -226,6 +291,18 @@ Prompt → Gemini → full call plan → execute all → if 422/409 errors → G
 **Output format enforcement (added PR #27):**
 - Prompt explicitly bans `tool_code`, `function_call`, `action` formats
 - Gemini must only output REST API calls with `method`, `endpoint`, `body`, `params`
+
+**Activity creation (fixed PR #64):**
+- `POST /activity` does NOT accept `project` or `projectId` fields — activities are global in Tripletex
+- Valid body: `{"name": "...", "activityType": "PROJECT_GENERAL_ACTIVITY"}` — nothing else
+- Fixed: Gemini was adding `"project": {"id": "..."}` → 422 on every "create project + activity" task
+
+**Supplier not found → create it (fixed PR #64):**
+- If `GET /supplier` returns count=0, create with `POST /supplier` first, then use `$responses.N.value.id`
+
+**Currency exchange / disagio (fixed PR #64):**
+- Account 1500 (Kundefordringer) in manual voucher REQUIRES `customer` field on that posting row
+- Pattern: GET /customer → GET /invoice by customerId → PUT /invoice/:payment → POST /ledger/voucher with exchange diff
 
 **Bank account setup (added PR #22):**
 - For any invoice flow: GET /ledger/account (number=1920) → PUT /ledger/account with `isBankAccount: true`, `bankAccountNumber: "12345678903"` (11 digits, no dots, no spaces)
@@ -273,8 +350,8 @@ Prompt → Gemini → full call plan → execute all → if 422/409 errors → G
 
 ## 8. SCORING CONTEXT
 
-- **Competition ends:** Sunday March 22 15:00 CET (~16 hours remaining as of Saturday 23:00)
-- **Our score:** 23.3 Task 1 points, rank #218 overall (as of ~22:00 CET)
+- **Competition ends:** Sunday March 22 15:00 CET (~4 hours remaining as of 11:00 CET March 22)
+- **Our score:** 35.8 Task 1 points, rank #223 overall (as of ~11:00 CET March 22)
 - **Score is sum of best per task type** — each unique task type solved is a new opportunity
 - **30 unique task types** total across Tier 1/2/3
 - **28 task types seen** in our submissions so far (see PROGRESS.md for full table)
@@ -336,23 +413,23 @@ cd ~/nm-ai-2026-1/task1-Tripletex && gcloud run deploy tripletex-agent --source 
 
 ---
 
-## 11. WHAT TO DO NEXT (as of March 21 ~23:00 CET)
+## 11. WHAT TO DO NEXT (as of March 22 ~11:00 CET — ~4h until competition ends)
 
-### Confirm pending PRs
-1. **PR #26 (bank return)** — not yet confirmed in validator logs. Submit a bank return task to verify.
-2. **PR #27 (employee sub-resources + tool_code ban)** — not yet confirmed. Submit an employee creation from PDF task to verify.
+### Keep submitting
+- Competition ends 15:00 CET. Use the auto-submit loop to maximize coverage.
+- 300 daily submission limit — plenty of room.
+
+### Still failing (check logs for patterns)
+- 0/10 tasks appearing in recent results — pull logs and find the PROMPT + ERROR pattern
+- Look for new 422 field errors or unresolved placeholders
 
 ### Unfixable (don't waste time)
-- Month-end closing (task #35x): all voucher accounts → 422 system-generated in validator. Getting 2/10 max (GET /ledger/account calls). Fundamentally broken in this env.
-- Bank statement reconciliation (task #41): INT32_MAX + system-generated supplier voucher. No known fix.
-- Supplier invoice via voucher (task #37): accounts 2400/2710 → system-generated.
+- Month-end closing (task #35x): all voucher accounts → 422 system-generated in validator. Getting 2/10 max.
+- Bank statement reconciliation (task #41): INT32_MAX + system-generated supplier voucher. 0/10.
+- Supplier invoice via voucher (task #37): accounts 2400/2710 → system-generated. Max 2/10.
 - Ledger error correction (task #24): 403 on first call (expired token). Unfixable.
 
-### Discover the 2 remaining task types
-- Submit repeatedly until new task types appear in logs
-- 28/30 seen — 2 more to discover
-
-### Potential improvements if new tasks appear
-- `POST /bank/reconciliation/match` or similar — unknown if it exists; only if bank reconciliation task is fixable
-- `GET /project?name=X` for project lookup by name in timesheet flows
-- Multiple employment entries if a task asks for multiple jobs on one employee
+### F-string safety rule (CRITICAL for future edits)
+- `build_llm_prompt()` is a Python f-string — any `{word}` becomes a variable substitution
+- ALL literal curly braces in the prompt text MUST be escaped as `{{` and `}}`
+- e.g. `{{"name": "X"}}` renders as `{"name": "X"}` — always double-check after edits
