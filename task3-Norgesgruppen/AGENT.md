@@ -1,7 +1,7 @@
 # AGENT.md — Task 3: NorgesGruppen Object Detection
 
 > NM i AI 2026 — Task 3 handoff/control file
-> Last updated: 2026-03-22 11:37 CET (Sunday, Oslo)
+> Last updated: 2026-03-22 12:10 CET (Sunday, Oslo)
 > Status: `0.8818` is selected final from `submission_task3_overnightA_conf004_iou060.zip`; daily submission quota is exhausted (`0/6` remaining today).
 
 ---
@@ -251,3 +251,50 @@ Before any submission attempt:
 Use this when starting a new Task 3 chat:
 
 "Continue Task 3 from `task3-Norgesgruppen`. First run git freshness check (`main` vs `HEAD`). Then read `AGENT.md`, `PROGRESS.md`, `PastSubmissions.md`, and Task 3 docs. Re-verify current score/rank and submission constraints with exact timestamps. Propose one bounded improvement pass with clear hypothesis, validation steps, and rollback path. If operator says to wait with submit, do not submit until explicit approval."
+
+---
+
+## 11. Postmortem Learning Pack (Task + Agentic AI)
+
+### 11.1 What Worked in Task 3
+1. Reliability-first inference fixes (`run.py` decode/letterbox/NMS/schema safety) created the biggest early jump (`0.1786` -> `0.7626`).
+2. Strict one-variable submission passes made attribution clear and prevented multi-factor confusion.
+3. High-upside retraining on GCP, then careful post-processing sweeps, produced the largest gains (`0.7780` -> `0.8621` -> `0.8818`).
+4. Fast rollback-safe baseline discipline let us take aggressive final shots without losing progress.
+5. Timestamped `OBSERVED/INFERRED/DECISION` logging prevented memory loss and enabled rapid continuation after context compaction.
+
+### 11.2 What Hurt Us (and Why)
+1. Stale context risk: early historical rank/score references were outdated and could have mis-prioritized effort.
+2. Proxy mismatch risk: at least one offline-improving pass (class-agnostic NMS) regressed on leaderboard.
+3. Local-only doc drift risk: when status lived in local edits only, handoff safety decreased.
+4. Quota pressure: limited submissions increased penalty for low-upside micro-tweaks.
+5. Long unattended runs without explicit checkpoint outputs can hide recoverable errors until late.
+
+### 11.3 Agentic AI Playbook to Reuse (General)
+1. Start every session with a freshness gate:
+   - fetch/pull `origin/main`
+   - verify merge status
+   - re-read control docs in fixed order.
+2. Separate facts from reasoning:
+   - log `OBSERVED` vs `INFERRED` vs `DECISION` explicitly.
+3. Enforce bounded experiments:
+   - one variable per submission
+   - pre-declared hypothesis
+   - explicit rollback path.
+4. Use a two-track strategy:
+   - Track A: safe baseline always submission-ready
+   - Track B: high-upside exploration with strict risk labeling.
+5. Guard irreversible actions:
+   - require explicit operator go/no-go for submissions and costly compute changes.
+6. Keep state durable:
+   - update docs as part of the workflow, not as an afterthought
+   - avoid relying on transient chat context.
+7. Favor learning velocity over action velocity:
+   - each attempt should produce a reusable lesson, not just a score outcome.
+
+### 11.4 Anti-Patterns to Avoid Next Time
+1. Submitting based only on proxy deltas without assessing transfer risk.
+2. Running many coupled code changes before a scored validation point.
+3. Consuming submission quota on low-expected-value tweaks when few attempts remain.
+4. Waiting to document until the end of a long session.
+5. Treating “agent confidence” as evidence; only reproducible artifacts and timestamps count.

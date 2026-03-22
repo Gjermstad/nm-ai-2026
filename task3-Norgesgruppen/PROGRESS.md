@@ -169,6 +169,25 @@
 - `INFERRED`: High-variance final pass produced a positive but small last-step gain (`+0.0010`).
 - `DECISION`: Freeze `0.8818` as final Task 3 score for this submission window.
 
+## 0.13 Retrospective: What We Learned (Task + Agentic AI) (2026-03-22, Sunday 12:10 CET)
+
+- `OBSERVED`: Highest-impact gains came from correctness and model quality, not from repeated micro-tuning:
+  - inference reliability fixes: `0.1786 -> 0.7626`
+  - retraining + controlled sweeps: `0.7780 -> 0.8621 -> 0.8818`
+- `OBSERVED`: One-variable submission discipline made outcomes easy to attribute and reduced rollback complexity.
+- `OBSERVED`: One proxy-positive pass (class-agnostic NMS) underperformed on leaderboard, confirming transfer risk.
+- `OBSERVED`: Frequent docs synchronization (`AGENT.md`, `PROGRESS.md`, `PastSubmissions.md`) enabled safe recovery across context resets and merged PR transitions.
+- `INFERRED`: Best operating pattern is dual-track:
+  - baseline-preserving safe track
+  - explicitly labeled high-variance exploration track.
+- `INFERRED`: Agentic workflows degrade when facts, assumptions, and decisions are mixed; explicit evidence tags reduce this failure mode.
+- `DECISION`: Carry forward a hard playbook for future tasks:
+  1. freshness gate before edits (`origin/main` sync + read-order check),
+  2. one-variable submission changes,
+  3. explicit operator approval before irreversible actions,
+  4. immediate durable logging after each attempt,
+  5. spend limited quota only on high-expected-value experiments.
+
 ## 1. Latest Session Update (2026-03-22, Sunday 02:05 CET)
 
 - Restored known-good NMS mode and changed one tuning lever only:
@@ -308,5 +327,5 @@
 ## 2. Next Actions
 
 1. Keep `0.8818` row selected as final in UI.
-2. No submissions remain today; next action is docs sync commit/PR on next session.
-3. Preserve the `OBSERVED/INFERRED/DECISION` trail for this final result in `PastSubmissions.md`.
+2. Use the new retrospective sections in `AGENT.md` and `PastSubmissions.md` as mandatory startup context for next Task 3 work.
+3. Reuse the Agentic AI playbook (freshness gate, bounded experiments, durable logging) across other tasks as standard operating procedure.
