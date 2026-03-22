@@ -35,7 +35,7 @@
     "kl": -0.060446277322038194,
     "l1": -0.025112574782971353
   },
-  "evaluated_at": "2026-03-22T01:03:07.385593+00:00",
+  "evaluated_at": "2026-03-22T01:12:27.099756+00:00",
   "gates": {
     "brier_non_regression": true,
     "cross_entropy_non_regression": true,
