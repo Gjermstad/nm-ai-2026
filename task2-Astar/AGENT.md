@@ -63,6 +63,7 @@ Run this exact order:
 1. Read these files in order:
    - `task2-Astar/AGENT.md`
    - `task2-Astar/PROGRESS.md`
+   - `task2-Astar/README.md` (human retrospective + practical appendix; written pre-Round-23-close)
    - `task2-Astar/PastRounds.md`
    - `task2-Astar/SPEC.md`
 2. Check hosted service first (`/health`, `/status`, `/model/status`) and report:
