@@ -2,7 +2,7 @@
 
 > NM i AI 2026 — Task 2 handoff/control file
 > Last updated: 2026-03-22 (Sunday, Oslo)
-> Status: PR #35 and PR #36 are merged and deployed on Cloud Run revision `astar-operator-00003-xmc`. Task2 history archive commit `cd86f02` (PR #52 branch content) is present on `origin/main`. Round 19 is active and baseline submitted (`5/5`), latest seen query state `45/50` with `run_enabled=true`. History-aware linear model v1 is integrated with strict runtime fallback. Fresh follow-up PR is open: `#57`.
+> Status: PR #57 is merged to `main`; Task2 history archive commit `cd86f02` is present on `origin/main`; latest verified Cloud Run revision is `astar-operator-00004-bcv`. Recent results: Round 20 `62.8`, Round 21 `66.4`, Round 22 `59.3` (`#213/278`, weight `2.9253x`). Current between-round snapshot: `active_round=null`, `run_enabled=true`, `deadline_guard_enabled=true`, `queries.used/max=50/50`, `submitted_count=5`, `fallback_mode=model_artifact_missing`. Final short Round 23 closes at `2026-03-22 15:00 CET`.
 
 ---
 
@@ -47,11 +47,12 @@ Implemented internal endpoints:
 Persisted runtime state:
 - `runtime/state.json`
 
-Merged PR:
+Merged PRs (recent):
 - `https://github.com/Gjermstad/nm-ai-2026/pull/19`
-
-Open PR (this session):
 - `https://github.com/Gjermstad/nm-ai-2026/pull/57`
+
+Open PR (current):
+- none; create a fresh PR for any new non-doc Task 2 code changes
 
 ---
 
@@ -64,12 +65,16 @@ Run this exact order:
    - `task2-Astar/PROGRESS.md`
    - `task2-Astar/PastRounds.md`
    - `task2-Astar/SPEC.md`
-2. Check hosted service first (`/health`, `/status`) and confirm active round + token present.
+2. Check hosted service first (`/health`, `/status`, `/model/status`) and report:
+   - `queries.used/max`, `submitted_count`, `run_enabled`, `deadline_guard_enabled`, `last_error`, `seconds_to_close`, `active_round.id/number`, `model_version`, `fallback_mode`.
 3. If hosted is unhealthy, start app locally as fallback and verify UI loads.
-4. Start run-mode and confirm budget/coverage changes.
-5. Rebuild draft and verify all seed validations are ready.
-6. Submit one seed manually, then submit all seeds.
-7. Final verify: `submitted_count=5/5`, `run_enabled=false`, `last_error=null`.
+4. Verify VM autopilot health:
+   - `pgrep -af task2_round_autopilot.py`
+   - `tail -n 40 /home/kenneth/task2_round_autopilot.log`
+   - script should include `FINAL_ROUND_NUMBER = 23`.
+5. For active rounds, prefer monitor-first reliability flow; intervene manually only on severe failures (for example `run_enabled=false`, guard disabled, or submit failures).
+6. Do not run long hold loops in-session; arm run/automation and return.
+7. Final verify after actions: `submitted_count=5/5`, `run_enabled=true|false` as intended, `last_error=null`.
 
 Screenshot source for post-round analysis:
 - `task2-Astar/screenshots/` (expected naming: `Round1X_overview.png`, `Round1X_SeedY_a.png`, `Round1X_SeedY_b.png`)
@@ -150,13 +155,33 @@ curl -sS -X POST "$BASE/submit/all"
 curl -sS "$BASE/status"
 ```
 
-### Current hosted deployment (verified 2026-03-21)
+### Current hosted deployment (verified 2026-03-22)
 
 - Project: `ai-nm26osl-1730`
 - Region: `europe-north1`
 - Service: `astar-operator`
 - URL: `https://astar-operator-u4ol5cv7ra-lz.a.run.app`
-- Latest verified revision: `astar-operator-00003-xmc`
+- Latest verified revision: `astar-operator-00004-bcv`
+
+### Latest live competition snapshot (2026-03-22, pre-Round 23)
+
+- Organizer-confirmed completed rounds:
+  - Round 20: `62.8`
+  - Round 21: `66.4`
+  - Round 22: `59.3` (`#213/278`, weight `2.9253x`)
+- Hosted between-round status (after Round 22 close):
+  - `active_round=null`
+  - `queries.used/max=50/50`
+  - `submitted_count=5`
+  - `run_enabled=true`
+  - `deadline_guard_enabled=true`
+  - `last_error=null`
+  - `model_version=null`
+  - `fallback_mode=model_artifact_missing`
+- Final-round operations note:
+  - organizers announced Round 23 is shorter and closes exactly `15:00 CET`
+  - scores are hidden until final leaderboard reveal (~`17:00 CET`)
+  - unattended VM autopilot is armed with Round 23 checkpoints: baseline `q>=6`, mid `q>=30`, late `q>=48`, final `T-15m`.
 
 ### Latest hosted smoke snapshot (2026-03-21 ~20:12 Oslo)
 
@@ -296,4 +321,4 @@ curl -sS "$BASE/status"
 
 Use this when starting a new session:
 
-"Continue Task 2 Astar from `task2-Astar`. Read `AGENT.md`, `PROGRESS.md`, `PastRounds.md`, and `SPEC.md` first. Then load `task2-Astar/history/summary/api_snapshot_summary.json` and `task2-Astar/history/summary/round_seed_diagnostics.json` for calibration context. If new files exist in `task2-Astar/screenshots/`, ingest them into `PastRounds.md` before proposing model tuning. Then check hosted `/status` and optimize live round operations without long blocking waits: run to ~40, rebuild+submit baseline, keep run enabled, and re-check near deadline for final lock-in. Respect operator preferences: never reuse merged PRs, and never submit when asked to wait. Report `queries.used/max`, `submitted_count`, `run_enabled`, `deadline_guard_enabled`, `last_error`, and `seconds_to_close`."
+"Continue Task 2 Astar only from `task2-Astar`. Read `AGENT.md`, `PROGRESS.md`, `PastRounds.md`, and `SPEC.md` first. Then load `task2-Astar/history/summary/api_snapshot_summary.json`, `task2-Astar/history/summary/round_seed_diagnostics.json`, and `task2-Astar/history/summary/replay_eval_linear_v1.json`. Confirm live `/status` + `/model/status` and report `queries.used/max`, `submitted_count`, `run_enabled`, `deadline_guard_enabled`, `last_error`, `seconds_to_close`, `active_round.id/number`, `model_version`, and `fallback_mode`. Verify VM autopilot (`/home/kenneth/task2_round_autopilot.py`, log `/home/kenneth/task2_round_autopilot.log`) is healthy. For final-round operations, prioritize reliability and only do manual submit interventions on severe failure."
