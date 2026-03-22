@@ -350,13 +350,13 @@ Prompt → Gemini → full call plan → execute all → if 422/409 errors → G
 
 ## 8. SCORING CONTEXT
 
-- **Competition ends:** Sunday March 22 15:00 CET (~4 hours remaining as of 11:00 CET March 22)
-- **Our score:** 35.8 Task 1 points, rank #223 overall (as of ~11:00 CET March 22)
+- **Competition ended:** Sunday March 22 15:00 CET
+- **FINAL score:** 35.79 Task 1 points | T1=12.4, T2=11.1, T3=12.2 | Rank #225 of 469
+- **Leaderboard #1 Tripletex:** Ave Christus Rex — 104.26 (T1=15.3, T2=35.9, T3=53.0)
 - **Score is sum of best per task type** — each unique task type solved is a new opportunity
-- **30 unique task types** total across Tier 1/2/3
-- **28 task types seen** in our submissions so far (see PROGRESS.md for full table)
-- **2 task types still unseen** — need more submissions to discover
-- Top score ~44 points (websecured.io), T1=15.5, T2=28.4
+- **30 unique task types** total across Tier 1/2/3 — we only saw 24/30
+- **419 total submissions** — 300 daily limit hit on final morning, no quota left for morning fixes
+- See PROGRESS.md section 10 for full lessons learned
 
 ---
 
@@ -413,23 +413,37 @@ cd ~/nm-ai-2026-1/task1-Tripletex && gcloud run deploy tripletex-agent --source 
 
 ---
 
-## 11. WHAT TO DO NEXT (as of March 22 ~11:00 CET — ~4h until competition ends)
+## 11. COMPETITION RESULT & KEY TAKEAWAYS
 
-### Keep submitting
-- Competition ends 15:00 CET. Use the auto-submit loop to maximize coverage.
-- 300 daily submission limit — plenty of room.
+**Competition ended March 22 15:00 CET. Final: 35.79 points, rank #225/469.**
 
-### Still failing (check logs for patterns)
-- 0/10 tasks appearing in recent results — pull logs and find the PROMPT + ERROR pattern
-- Look for new 422 field errors or unresolved placeholders
+### The single most important lesson
+The overnight auto-submit loop burned all 300 daily submissions before we woke up. We had
+better fixes ready in the morning (PR #64) but no quota to test them. **Never burn more than
+half your daily submission budget unattended.** Save the rest for when you can react to results.
 
-### Unfixable (don't waste time)
-- Month-end closing (task #35x): all voucher accounts → 422 system-generated in validator. Getting 2/10 max.
-- Bank statement reconciliation (task #41): INT32_MAX + system-generated supplier voucher. 0/10.
-- Supplier invoice via voucher (task #37): accounts 2400/2710 → system-generated. Max 2/10.
-- Ledger error correction (task #24): 403 on first call (expired token). Unfixable.
+### F-string safety rule (CRITICAL for any future work)
+`build_llm_prompt()` is a Python f-string. ANY `{word}` in the prompt becomes a variable
+substitution and raises `NameError` → HTTP 500 on every request. There's no visible error
+to the caller — it just looks like 0% scores. Escape ALL literal braces as `{{` and `}}`.
+**Always grep for `{[a-z]` in the function after any edit.**
 
-### F-string safety rule (CRITICAL for future edits)
-- `build_llm_prompt()` is a Python f-string — any `{word}` becomes a variable substitution
-- ALL literal curly braces in the prompt text MUST be escaped as `{{` and `}}`
-- e.g. `{{"name": "X"}}` renders as `{"name": "X"}` — always double-check after edits
+### What worked
+- Single-shot LLM planner + one repair pass for 422 errors
+- Cloud Run source deploy — fast iteration, no Docker needed
+- Reading structured Cloud Run logs to find PROMPT → ERROR pairs
+- Iterating the Gemini system prompt — highest leverage improvement of everything
+
+### What to fix if returning to this project
+1. Employee SEARCH FIRST for project manager role (cascade failure when employee exists)
+2. Currency exchange invoice 404 (INT32_MAX or wrong invoice lookup)
+3. Cap submission loop at 150/day max when running unattended
+4. Check `response.status` in JS submit loop — don't count 429s as successes
+5. Don't navigate the tab running the JS loop — use fetch() to check results instead
+
+### Unfixable in this validator environment
+- Month-end closing: all voucher accounts → 422 system-generated. Max 2/10.
+- Bank statement reconciliation: INT32_MAX + system-generated. 0/10.
+- Ledger error correction: 403 expired token on first call. Unfixable.
+
+See PROGRESS.md section 10 for full lessons learned on agentic AI development.

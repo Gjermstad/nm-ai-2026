@@ -1,22 +1,37 @@
 # Progress Report: Tripletex AI Accounting Agent
 
-## 1. Current state (2026-03-22 ~11:00 CET)
+## 1. FINAL RESULT (competition ended 2026-03-22 15:00 CET)
 
-PR #64 merged and deployed (revision `tripletex-agent-00059-tvj`). Score: **35.8**, rank **#223** of 402. 30/30 task types seen.
+**Score: 35.79 | Rank: #225 of 469 | T1: 12.4 | T2: 11.1 | T3: 12.2**
+- 24/30 task types attempted (6 never seen in our submissions)
+- 419 total submissions across the competition
+- Starting score day 1: ~0. Score at end of night 1: ~23. Final: 35.79.
 
-**Overnight session findings (2026-03-22 02:00–07:30 CET):**
+**Key timeline:**
+- Mar 21 ~23:00: PR #53 accidentally introduced f-string crash → all requests 500
+- Mar 22 ~01:14: Crash deployed → 0% on every task until fixed
+- Mar 22 ~02:40: PR #61 merged, crash fixed, IAM fixed (PR #58)
+- Mar 22 ~02:34–07:24: Auto-submit loop ran 5 hours, burned all 300 daily submissions
+- Mar 22 ~10:18: Returned to find score 35.8, daily quota at 300/300 (exhausted)
+- Mar 22 ~11:00: PR #64 deployed (3 more fixes) — but no quota left to test
+- Mar 22 15:00: Competition ended. Final: 35.79.
+
+**What the overnight loop achieved:** Score 28.7 → 35.79 (+7 points) from fixes in PRs #55/#58/#61.
+**What hurt us:** All 300 daily submissions burned overnight — no quota left for morning fixes.
+
+---
+
+## 1b. Overnight session findings (2026-03-22 02:00–07:30 CET)
+
 - **PR #61 CRITICAL**: `{voucherId}` in f-string `build_llm_prompt()` → `NameError` → HTTP 500 on every request from 01:14 AM until fixed. ALL submissions during that window returned 0%. Fixed by escaping as `{{voucherId}}`.
 - **PR #58**: Deploy command `--no-allow-unauthenticated` was stripping IAM binding → 401 on all validator calls. Fixed to `--allow-unauthenticated`.
 - **PR #55**: `GET /employee/employment/occupationCode?code=4110` silently ignores the `code` filter and returns all 140 codes. Fixed by instructing Gemini to fetch all and scan.
-- **PR #64**: Three 422 errors:
+- **PR #64**: Three 422 errors fixed (deployed but not tested due to quota exhaustion):
   1. `POST /activity` with `"project"` field → doesn't exist, activities are global
   2. Supplier not found (count=0) → must create supplier before invoice
   3. Account 1500 in manual voucher → needs `customer` on posting row
-- **Score jump**: 28.7 → 35.8 after fixes. Auto-submit loop ran 5h (02:34–07:24 CET).
 
 **Deployed URL:** `https://tripletex-agent-997219197351.europe-north1.run.app`
-
-**Competition ends:** March 22 15:00 CET (~4h remaining).
 
 ---
 
@@ -301,3 +316,65 @@ pytest tests/test_agent.py -v
 ```
 
 14 tests, all passing (as of PR #12).
+
+---
+
+## 10. Lessons learned — what to do differently next time
+
+### Task-specific (Tripletex / agentic accounting)
+
+**What worked well:**
+- Single-shot LLM planner + one repair pass — fast, cheap, good enough for most tasks
+- Cloud Run source deploy — simple, no Docker knowledge needed
+- Reading Cloud Run logs directly to find prompt+error pairs — invaluable debug loop
+- Iterating on the Gemini system prompt in main.py — highest leverage of anything we did
+- Deploying from local Mac terminal (not Cloud Shell) — much faster iteration
+
+**What hurt us:**
+
+1. **f-string crash silent for hours** — `build_llm_prompt()` is a Python f-string. Adding `{word}` without escaping to `{{word}}` causes `NameError` → HTTP 500 on every request. It returns 200 to the caller so nothing looks wrong from outside. We lost ~1.5 hours of submissions to this. **Fix: always grep for `{[a-z]` in the prompt string after edits, or switch to a non-f-string template.**
+
+2. **Overnight loop burned all 300 daily submissions** — The auto-submit loop ran unattended for 5 hours and exhausted the daily quota. We woke up to fixes ready but no quota to test them. **Fix: cap the loop at ~150 submissions (half the daily limit) and stop. Save half for the morning when you can actually react to results.**
+
+3. **JS loop didn't check response status** — The loop counted 429 "rate limit" responses as successful submits. We thought we had submitted 16 new ones in the morning; they were all rejected. **Fix: check `r.status` in the loop and log/stop on 429.**
+
+4. **Page navigation killed the JS loop** — Every `navigate()` call reloads the tab and wipes JS state. The loop silently died multiple times. **Fix: check results via `fetch()` API calls from the same tab rather than navigating away. Or open a second tab for results checking.**
+
+5. **Deployed `--no-allow-unauthenticated` without noticing** — One deploy stripped the IAM binding and caused every validator call to get 401. Took a while to diagnose. **Fix: always verify the IAM binding after deploy, or script a check.**
+
+6. **6 task types never seen** — With 300 submissions burned fast, we never hit 6 of the 30 task types. **Fix: submit 4 at a time and space them out over the competition period instead of bulk-submitting overnight.**
+
+7. **Employee/project-manager cascade failure** — Gemini would try to create an employee that already existed (422 "email already exists") → every downstream call (project, order, invoice) was skipped. A single 422 at step 1 wiped out 8+ checks. **Fix: stronger SEARCH FIRST instructions specifically for the project manager role, not just standalone employee creation tasks.**
+
+---
+
+### General lessons for working with Agentic AI
+
+**Architecture:**
+- **Single-shot planning is powerful but brittle on long chains** — if step 3 of 12 fails, steps 4-12 are all skipped. The repair pass helps but only for 422/409. A smarter retry at the step level (not the plan level) would catch more.
+- **Placeholder resolution is your most fragile component** — `$responses.N.value.id` vs `$responses.N.values.0.id` vs `$responses.N.id` — one wrong path and the whole chain collapses silently. Add validation that catches unresolved `$responses.` strings before execution.
+- **The LLM prompt is the product** — 80% of score improvements came from better instructions, not better code. Treat the system prompt like source code: version it, review it carefully, test edge cases.
+
+**Observability:**
+- **Log every LLM input and output** — when something goes wrong, you need to know exactly what the LLM was told and what it said. We logged PROMPT and each CALL which made debugging tractable.
+- **Log structured data** — `CALL N: 422 | {full error body}` made it easy to grep for specific error patterns across hundreds of requests.
+- **Correlate LLM output with API errors immediately** — the debug loop was: read prompt → read plan → read errors → fix prompt. Keep that loop as tight as possible.
+- **Silent failures are the worst failures** — HTTP 500 returned as 200, 429s counted as successes, JS loops dying quietly. Design systems to fail loudly.
+
+**Rate limits and quotas:**
+- **Map out all rate limits before you start** — submissions/day, LLM tokens/minute, API calls/second. Know your ceilings before you hit them.
+- **Budget submissions across time** — don't burn everything in one session. Save quota for when you have results and can react.
+- **Always check the response code** — whether it's a fetch() in JS or a requests.post() in Python, always handle non-2xx responses explicitly.
+
+**LLM behaviour:**
+- **LLMs follow instructions precisely — and that's the problem** — if your instructions are ambiguous, the LLM picks one interpretation consistently and you'll see the same wrong answer every time. Be exhaustive about edge cases.
+- **Negative examples matter** — telling Gemini "do NOT add a project field to /activity" was more effective than just saying "use activityType". Explicit "never do X" instructions prevent hallucinated fields.
+- **The LLM doesn't know what it doesn't know** — Gemini confidently tried `GET /vat/type` (404), `POST /supplier/invoice` (405), and `POST /accounting/dimension` (404) because they seem reasonable from the API name. You must tell it explicitly which endpoints don't exist.
+- **Temperature 0.1 is your friend** — for structured API planning you want determinism, not creativity. Low temperature = consistent, debuggable output.
+
+**Working with AI coding assistants (Claude/Codex):**
+- **Give the AI full context upfront** — file paths, GCP project IDs, current score, what's broken, what's been tried. The more context, the less back-and-forth.
+- **One task at a time** — multiple AI agents running in parallel on the same repo create merge conflicts and confuse the state. Coordinate explicitly.
+- **Always verify the branch is current before making changes** — stale worktrees cause merge conflicts. Run `git log --oneline -5` at session start.
+- **Trust the AI on mechanical tasks, verify on logic** — let it write boilerplate, deploy commands, and repetitive edits. Read carefully when it's designing the core algorithm.
+- **Summaries between sessions lose nuance** — important context (like "this function is an f-string") can get lost in session handoffs. Keep AGENT.md updated with the non-obvious pitfalls so the next session doesn't repeat mistakes.
