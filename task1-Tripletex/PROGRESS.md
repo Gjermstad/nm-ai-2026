@@ -286,6 +286,30 @@ Stop loop: `window._autoSubmitRunning = false`
 
 ⚠️ If the loop stops after one batch (Mac slept), paste the full script again to restart.
 
+### GCP-based submit loop (laptop-independent, preferred overnight)
+VM: `yolo-training-vm` (europe-west1-c), project `ai-nm26osl-1730`
+Cookie name: `access_token` (HttpOnly JWT, ~5.6 day expiry from 2026-03-22)
+
+Start loop on VM (run once, then close laptop):
+```bash
+gcloud compute ssh yolo-training-vm --zone=europe-west1-c --project=ai-nm26osl-1730 \
+  --command="screen -dmS submit_loop bash -c 'python3 /tmp/submit_loop.py > /tmp/submit_loop.log 2>&1'"
+```
+
+Check status:
+```bash
+gcloud compute ssh yolo-training-vm --zone=europe-west1-c --project=ai-nm26osl-1730 \
+  --command="tail -30 /tmp/submit_loop.log"
+```
+
+Stop loop:
+```bash
+gcloud compute ssh yolo-training-vm --zone=europe-west1-c --project=ai-nm26osl-1730 \
+  --command="screen -S submit_loop -X quit"
+```
+
+Script is at `/tmp/submit_loop.py` on the VM. To update the cookie, SSH in and edit line `COOKIE_VAL = '...'`.
+
 ### Read logs (local terminal — gcloud must be authenticated)
 ```bash
 gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.service_name="tripletex-agent"' \
