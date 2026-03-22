@@ -1,13 +1,33 @@
 # Progress Report: Tripletex AI Accounting Agent
 
-## 1. Current state (2026-03-22 ~00:00 CET)
+## 1. Current state (2026-03-22 ~01:15 CET)
 
-All PRs up to #33 merged and deployed. Score: unknown (latest logs show auth errors). 29/30 task types seen. 1 remaining task type undiscovered.
+PRs #42–#51 merged and deployed (revision 00055). Score: 27.67 (T1=12.8, T2=9.9, T3=5.0), rank #236/391. Competition ends 15:00 CET today (~14h remaining).
 
-**Known open bugs (pre-this-PR):**
-- Duplicate entity creation: GET /customer finds entity but Gemini still POSTs → cascade failure (fixed this PR: SEARCH FIRST for customer + department)
-- Same issue for GET /employee: found but still POSTed, downstream refs wrong response index (strengthened this PR)
-- Auth errors (0/10, 0/7): fixed by `gcloud run services add-iam-policy-binding --member allUsers --role roles/run.invoker`
+**Fixes this overnight session (PRs #40–#51):**
+- #40: Department SEARCH FIRST (GET before POST, skip POST if found)
+- #41: POST /employee department REQUIRED; ban startDate on employee body
+- #42: Supplier SEARCH FIRST
+- #44: activityType as REQUIRED field (wrong enum, fixed in #48)
+- #46: customer field on POST /project (was missing → 0/7 on all project tasks)
+- #47: Repair LLM now sees skipped calls (employment calls after failed employee now retry); email REQUIRED for STANDARD users
+- #48: activityType correct enum — PROJECT_GENERAL_ACTIVITY not GENERAL_PROJECT_ACTIVITY
+- #50: POST /supplierInvoice (camelCase) instead of /ledger/voucher (system-generated account fix)
+- #51: dueDate→invoiceDueDate in GET /invoice fields; occupationCode filter by nameNO not code=
+
+**User preferences (important for next session):**
+- Ask user to merge PRs and deploy rather than automating it (user is awake and can do in seconds)
+- Give PR link + deploy command at end of every response — user doesn't want to scroll
+- Never push directly to main (except AGENT.md/PROGRESS.md docs)
+- User wants to know context level so they can start a new session when needed
+- User confirmed: organizers say ALL tasks are scorable at full score — nothing is truly "unfixable"
+
+**Still to investigate (organizers say solvable):**
+- `PUT /invoice/{id}/:payment → 404` when invoice ID > INT32_MAX — root cause unknown
+- `POST /travelExpense/cost` → 403 BETA — try different approach or newer API version?
+- Accounting dimensions — correct endpoint unknown (not /accounting/dimension)
+- Employee PDF 15/22: 4 checks still failing (personnummer field? workingHoursScheme? wrong occupationCode?)
+- Ledger error corrections: uses 1920 as balancing account — validator probably expects specific counterpart accounts
 
 **Deployed URL:** `https://tripletex-agent-997219197351.europe-north1.run.app`
 
@@ -87,18 +107,21 @@ All PRs up to #33 merged and deployed. Score: unknown (latest logs show auth err
 | 34b | Create product "Eau minérale" #7027, 36750 NOK, 15% VAT (French) | ✅ 6/7 | 1 | PR #24 fix confirmed working — number field included ✅ |
 | 35 | Month-end closing March 2026 — periodisering, avskriving, lønnsavsetning (Nynorsk) | ⚠️ 2/10 | 3 | Account 6030 not in validator → unresolved placeholder → 422. Fixed PR #25: skip calls with unresolved placeholders. |
 | 35x | Month-end closing (Norwegian/Spanish variants) | ⚠️ 2/10 | 3 | ALL voucher account postings → 422 system-generated in this validator env (1290, 1720, 5000, 2900, 6020, 6500). 2pts = GET /ledger/account calls only. Fundamentally unfixable. |
-| 36 | Analyze ledger Jan vs Feb, find top 3 expense accounts, create projects + activities (Spanish) | ❌ 0/10 | 3 | GET /ledger/posting with dot notation → 400. POST /activity not in prompt. Fixed PR #25: parentheses syntax, add POST /activity. |
-| 37 | Supplier invoice from PDF, Rio Azul Lda, IT-konsulenttjenester, INV-2026-6669 (Portuguese) | ⚠️ 2/10 | 2 | POST /ledger/voucher to accounts 2400/2710/6300 → 422 system-generated. Unfixable. |
-| 38 | Complete project lifecycle: create project, log time x2, register supplier cost, create invoice (English) | ⚠️ 2/11 | 3 | Gemini hallucinated `tool_code` format instead of REST API calls → all skipped. Fixed PR #27: reinforce output format, ban tool_code. |
-| 42 | Timesheet 11h "Design" on "Integración de plataforma" for Ana Romero / Costa Brava SL, project invoice (Spanish) | ⚠️ 4/8 | 2 | `employee` field in orderLines → 422. Repair pass added `customer` to timesheet/entry → 422. Fixed PR #34. |
-| 43 | Create order + invoice + payment for Nordlys AS, Datarådgjeving + Programvarelisens (Nynorsk) | ⚠️ 4/8 | 2 | Invoice ID 2147631572 > INT32_MAX → payment 404. Unfixable. |
-| 44 | Fixed price 365350 NOK on "Intégration CRM" for Colline SARL, PM Adam Thomas, 75% milestone invoice (French) | ⚠️ 2/8 | 3 | GET /customer found it but Gemini still POST /customer → duplicate. GET /employee found it but still POST /employee → 422. POST /project depends on POST /employee → cascade skip. Fixed this PR: SEARCH FIRST for customer + employee. |
-| 45 | PDF receipt: book accommodation to dept "Utvikling", correct account + VAT (Nynorsk) | ❌ 0/10 | 2 | GET /dept found Utvikling but still POST /dept. Voucher created (201) but wrong account (6320 Renovasjon used for accommodation; should be ~7140 Reisekostnader). Fixed this PR: SEARCH FIRST for department. Account guidance TBD. |
+| 36 | Analyze ledger Jan vs Feb, find top 3 expense accounts, create projects + activities (Spanish/French) | ⚠️ 0/10 | 3 | POST /activity activityType wrong enum → 422 all activity calls. Fixed PR #48: correct enum PROJECT_GENERAL_ACTIVITY. |
+| 37 | Supplier invoice from PDF, Rio Azul Lda, IT-konsulenttjenester, INV-2026-6669 (Portuguese) | ⚠️ 2/10 | 2 | POST /ledger/voucher → 422 system-generated (2400/2710). Fixed PR #50: use POST /supplierInvoice instead. |
+| 38 | Complete project lifecycle: create project, log time x2, register supplier cost, create invoice (English) | ⚠️ 2/11 | 3 | Gemini hallucinated `tool_code` format. Fixed PR #27. |
 | 39 | Create and send invoice to Lumière SARL, 34100 NOK, Stockage cloud (French) | ✅ 7/7 | 2 | Bank account ✅, sendToCustomer=true ✅ |
-| 40 | Create employee from PDF employment contract — Maximilian Fischer, Kvalitetskontroll dept (German) | ❌ 0/22 | 3 | Gemini used ternary expression for department.id → unresolved placeholder → employee skipped. Fixed PR #27: ban ternary, add employeeNumber + employment sub-resources. |
-| 41 | Bank statement reconciliation CSV — match payments to customer/supplier invoices (German) | ❌ 0/10 | 3 | Customer payment → 404 (INT32_MAX). Supplier payment voucher → 422 system-generated. Repair POST /supplierPayment → 404. Unfixable. |
+| 40 | Create employee from PDF employment contract — Maximilian Fischer, Kvalitetskontroll dept (German) | ⚠️ 15/22 | 3 | Email missing → repair skipped employment calls. Fixed PR #47: repair LLM sees skipped calls + email REQUIRED for STANDARD. Scored 15/22. Remaining 4 failures: likely personnummer, workingHoursScheme, occupationCode wrong. |
+| 41 | Bank statement reconciliation CSV — match payments to customer/supplier invoices (German) | ❌ 0/10 | 3 | INT32_MAX payment 404. Supplier invoice → use POST /supplierInvoice now (PR #50). Investigate. |
+| 42 | Timesheet 11h "Design" on "Integración de plataforma" for Ana Romero / Costa Brava SL, project invoice (Spanish) | ⚠️ 4/8 | 2 | Fixed PR #34. |
+| 43 | Create order + invoice + payment for Nordlys AS, Datarådgjeving + Programvarelisens (Nynorsk) | ⚠️ 4/8 | 2 | Invoice ID > INT32_MAX → payment 404. Organizers say solvable. |
+| 44 | Fixed price project + milestone invoice (French/multi) | ⚠️ was 2/8 | 3 | SEARCH FIRST fixes in PRs #40-42. |
+| 45 | PDF receipt: book accommodation to dept "Utvikling" (Nynorsk) | ⚠️ was 0/10 | 2 | SEARCH FIRST fixed PR #40. Account guidance still TBD. |
+| 46 | Create project linked to customer (French/various) | ⚠️ was 0/7 | 1 | Fixed PR #46: customer field on POST /project. |
+| 47 | Supplier invoice from PDF (Portuguese/various) | ⚠️ was 0/8 | 2 | Fixed PR #50: POST /supplierInvoice. |
+| 48 | Currency agio/disagio + payment (EUR invoice) | ⚠️ 2/10 | 3 | dueDate → invoiceDueDate fixed PR #51. Payment INT32_MAX still an issue. |
+| 49 | Employee from PDF + full employment setup (Nynorsk) | ⚠️ 15/22 | 3 | Partially fixed #47. Remaining: personnummer, occupationCode, workingHoursScheme. |
 | ? | Unseen #1 | — | ? | — |
-| ? | Unseen #2 | — | ? | — |
 
 **Patterns observed:**
 - Credit notes on existing invoices → works ✅

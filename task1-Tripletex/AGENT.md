@@ -1,7 +1,7 @@
 # AGENT.md — Task 1: Tripletex AI Accounting Agent
 > NM i AI 2026 — Solo competitor, frontend student (Kristiania, 6th semester)
-> Last updated: 2026-03-21 ~23:00 CET
-> Status: PR #27 merged — employee sub-resources, tool_code ban, bank return reversal. 28/30 task types seen. Score: 23.3, rank #218.
+> Last updated: 2026-03-22 ~01:15 CET
+> Status: PRs #42–#51 merged and deployed (rev 00055). Score: 27.67 (T1=12.8, T2=9.9, T3=5.0), rank #236/391. Competition ends 15:00 CET today (~14h remaining).
 
 ---
 
@@ -126,37 +126,40 @@ https://tripletex-agent-997219197351.europe-north1.run.app
 - Basic auth: username `"0"`, password = `session_token`
 - `auth=("0", session_token)` in Python requests
 
-### Endpoint status (as of PR #27)
+### Endpoint status (as of PR #51, rev 00055)
 
 **Verified working (seen 201/200/204 in validator logs):**
 - `GET /customer`, `GET /employee`, `GET /project`, `GET /department`, `GET /activity`
 - `POST /customer`, `POST /employee`, `POST /department`, `POST /project`, `POST /order`, `POST /product`
 - `POST /supplier` (confirmed ✅ — 6/6 on supplier creation task)
-- `POST /activity` (confirmed ✅ — PR #25)
-- `POST /travelExpense`, `PUT /travelExpense/{id}`, `DELETE /travelExpense/{id}`
+- `POST /activity` (confirmed ✅ — activityType enum: GENERAL_ACTIVITY / PROJECT_GENERAL_ACTIVITY / PROJECT_SPECIFIC_ACTIVITY / TASK)
+- `POST /supplierInvoice` (camelCase! NOT /supplier/invoice — auto-generates 2400/2710 postings)
+- `POST /travelExpense` (header only — cost lines are BETA 403)
 - `PUT /order/{id}/:invoice`, `PUT /invoice/{id}/:payment`, `PUT /invoice/{id}/:createCreditNote`
-- `GET /invoice` (requires `invoiceDateFrom`/`invoiceDateTo`; NO dot notation in fields param)
+- `GET /invoice` (requires `invoiceDateFrom`/`invoiceDateTo`; NO dot notation; dueDate→invoiceDueDate)
 - `GET /ledger/account`, `PUT /ledger/account/{id}`
 - `POST /ledger/voucher` (body: `"postings"` array ONLY — no vouchers/voucherRows/voucherType/supplier/department fields)
 - `GET /ledger/posting` (use parentheses for nested fields: `account(id,number,name)` NOT `account.id`)
 - `GET /supplier`
 - `POST /timesheet/entry` (confirmed ✅ — 6/6 on timesheet task)
-- `POST /employee/employment` (added PR #27 — employee.id + startDate + isMainEmployer)
-- `POST /employee/employment/details` (added PR #27 — employment.id, salary, %, job code)
-- `GET /employee/employment/occupationCode` (look up job codes)
-- `PUT /ledger/voucher/{id}/:reverse` (confirmed PR #26 — bank return reversal with `?date=TODAY`)
+- `POST /employee/employment` (employee.id + startDate + isMainEmployer)
+- `POST /employee/employment/details` (employment.id, salary, %, occupationCode)
+- `GET /employee/employment/occupationCode` (filter by nameNO=, NOT code= — code param is ignored)
+- `PUT /ledger/voucher/{id}/:reverse` (bank return reversal with `?date=TODAY`)
 
 **Verified NOT working:**
-- `GET /vat/type` → 404 (endpoint does not exist)
-- `POST /supplier/invoice` → 405
+- `GET /vat/type` → 404 (hardcode VAT IDs: 3=25%, 5=15%, omit for 0%)
+- `POST /supplier/invoice` → 405 (use `POST /supplierInvoice` camelCase instead)
 - `POST /invoice/fromTimesheet` → 405
 - `POST /invoice/payment` → 405 (use `PUT /invoice/{id}/:payment` instead)
 - `POST /timesheet` (without `/entry`) → 404
-- `POST /timeSheet` (capital S) → 404
 - `PUT /invoice/{id}/:reversePayment` → 404
+- `POST /accounting/dimension` → 404 (accounting dimensions NOT supported)
+- `PUT /invoice/{id}/:payment` → 404 when invoice ID > INT32_MAX (validator env bug — organizers say solvable, needs investigation)
 
 **BETA (always 403 in validator environment):**
 - `PUT /project/{id}`, `DELETE /project/{id}`, `DELETE /customer/{id}`
+- `POST /travelExpense/cost` (per diems, individual costs — organizers say solvable, needs investigation)
 - `PUT /order/orderline/{id}`, `DELETE /order/orderline/{id}`
 - `POST /travelExpense/cost`
 
