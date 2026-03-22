@@ -2,7 +2,7 @@
 
 > NM i AI 2026 — Task 2 handoff/control file
 > Last updated: 2026-03-22 (Sunday, Oslo)
-> Status: PR #57 is merged to `main`; Task2 history archive commit `cd86f02` is present on `origin/main`; latest verified Cloud Run revision is `astar-operator-00004-bcv`. Recent results: Round 20 `62.8`, Round 21 `66.4`, Round 22 `59.3` (`#213/278`, weight `2.9253x`). Current between-round snapshot: `active_round=null`, `run_enabled=true`, `deadline_guard_enabled=true`, `queries.used/max=50/50`, `submitted_count=5`, `fallback_mode=model_artifact_missing`. Final short Round 23 closes at `2026-03-22 15:00 CET`.
+> Status: PR #57 is merged to `main`; Task2 history archive commit `cd86f02` is present on `origin/main`; latest verified Cloud Run revision is `astar-operator-00004-bcv`. Recent completed results: Round 20 `62.8`, Round 21 `66.4`, Round 22 `59.3` (`#213/278`, weight `2.9253x`). Round 23 is active (`id=93c39605-628f-4706-abd9-08582f8b61d7`) and short-final close is `2026-03-22 15:00 CET`. Latest live snapshot (`2026-03-22 13:24 CET`): `queries.used/max=48/50`, `submitted_count=5`, `profile=aggressive`, `run_enabled=true`, `deadline_guard_enabled=true`, `last_error=null`, `fallback_mode=model_artifact_missing`. VM autopilot is patched for controlled push (`aggressive` query mode, `safe` checkpoint submit mode).
 
 ---
 
@@ -71,7 +71,7 @@ Run this exact order:
 4. Verify VM autopilot health:
    - `pgrep -af task2_round_autopilot.py`
    - `tail -n 40 /home/kenneth/task2_round_autopilot.log`
-   - script should include `FINAL_ROUND_NUMBER = 23`.
+   - script should include `FINAL_ROUND_NUMBER = 23` and controlled-profile toggles (`QUERY_PROFILE=aggressive`, `SUBMIT_PROFILE=safe`).
 5. For active rounds, prefer monitor-first reliability flow; intervene manually only on severe failures (for example `run_enabled=false`, guard disabled, or submit failures).
 6. Do not run long hold loops in-session; arm run/automation and return.
 7. Final verify after actions: `submitted_count=5/5`, `run_enabled=true|false` as intended, `last_error=null`.
@@ -163,7 +163,36 @@ curl -sS "$BASE/status"
 - URL: `https://astar-operator-u4ol5cv7ra-lz.a.run.app`
 - Latest verified revision: `astar-operator-00004-bcv`
 
-### Latest live competition snapshot (2026-03-22, pre-Round 23)
+### Latest live competition snapshot (2026-03-22, active Round 23 controlled push)
+
+- Active round:
+  - `active_round.number=23`
+  - `active_round.id=93c39605-628f-4706-abd9-08582f8b61d7`
+  - `closes_at=2026-03-22T14:00:00+00:00` (`15:00 CET`)
+- Latest live status at `2026-03-22 13:24 CET`:
+  - `queries.used/max=48/50`
+  - `submitted_count=5`
+  - `profile=aggressive`
+  - `run_enabled=true`
+  - `deadline_guard_enabled=true`
+  - `last_error=null`
+  - `fallback_mode=model_artifact_missing`
+- VM autopilot (`/home/kenneth/task2_round_autopilot.py`) runtime behavior:
+  - controlled push patch active: `aggressive` during query collection, `safe` only for `rebuild+submit`, then back to `aggressive`
+  - log-confirmed checkpoint execution:
+    - baseline `q>=6` => `ok=True`
+    - mid `q>=30` => `ok=True`
+    - late `q>=48` => `ok=True`
+  - final checkpoint remains armed for `T-15m`.
+- Last completed-round diagnostics fetched live from API (`rounds 19..22`) show persistent class bias:
+  - `Empty` underprediction (`-0.044791`)
+  - `Forest` underprediction (`-0.058783`)
+  - `Settlement` overprediction (`+0.033254`)
+  - `Port` overprediction (`+0.024095`)
+  - `Ruin` overprediction (`+0.02833`)
+  - `Mountain` overprediction (`+0.017895`)
+
+### Previous between-round snapshot (2026-03-22, pre-Round 23)
 
 - Organizer-confirmed completed rounds:
   - Round 20: `62.8`
