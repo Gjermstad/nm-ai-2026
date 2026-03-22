@@ -1,5 +1,51 @@
 # Progress Report: Astar Island Operator (Task 2)
 
+## 0. Round 23 Live Push Snapshot (2026-03-22, Sunday ~13:24 Oslo)
+
+- Final-round context:
+  - Round 23 is active and this is the final scoring opportunity.
+  - User-approved strategy for this window: controlled push (`aggressive` query collection while preserving reliability on submits).
+- Key live status at `2026-03-22 13:24 CET`:
+  - `active_round.id/number=93c39605-628f-4706-abd9-08582f8b61d7/23`
+  - `queries.used/max=48/50`
+  - `submitted_count=5`
+  - `profile=aggressive`
+  - `run_enabled=true`
+  - `deadline_guard_enabled=true`
+  - `last_error=null`
+  - `seconds_to_close=5713.519257`
+  - `fallback_mode=model_artifact_missing`
+- Last completed rounds (fetched live from API):
+  - Round 19: `43.9844` (`#197/228`, weight `2.527`)
+  - Round 20: `62.8199` (`#148/181`, weight `2.6533`)
+  - Round 21: `66.4324` (`#184/225`, weight `2.786`)
+  - Round 22: `59.2547` (`#213/278`, weight `2.9253`)
+- Fresh rounds `19..22` class-bias diagnostics (mean `prediction - ground_truth`, all seeds):
+  - overall:
+    - `Empty=-0.044791`, `Forest=-0.058783` (underprediction)
+    - `Settlement=+0.033254`, `Port=+0.024095`, `Ruin=+0.02833`, `Mountain=+0.017895` (overprediction)
+  - Round 22 stayed on the same error direction (`Empty/Forest` low, dynamic tails high), consistent with the observed performance dip.
+- Runtime control issue found and fixed on VM autopilot:
+  - before patch, `/home/kenneth/task2_round_autopilot.py` force-set profile to `safe` every loop.
+  - patch applied + restarted to controlled behavior:
+    - `QUERY_PROFILE = "aggressive"`
+    - `SUBMIT_PROFILE = "safe"`
+    - autopilot now sets `safe` only around `rebuild+submit`, then restores `aggressive`.
+  - running process after restart:
+    - `853686 /usr/bin/python3 /home/kenneth/task2_round_autopilot.py`
+- Checkpoint evidence from `/home/kenneth/task2_round_autopilot.log`:
+  - `baseline_q>=6` => `ok=True`, `submitted_count=5`
+  - `mid_q>=30` => `ok=True`, `submitted_count=5`
+  - `q>=48` => `ok=True`, `submitted_count=5`
+  - profile transitions logged as expected:
+    - `profile_set_aggressive`
+    - `profile_set_safe_for_submit`
+    - `profile_set_aggressive_post_submit`
+- Reliability constraints preserved in this pass:
+  - no manual `submit` endpoint calls from this session,
+  - floor safety (`0.01`) and deadline guard behavior kept intact,
+  - intervention was limited to monitoring + autopilot control-mode patch.
+
 ## 0. Final-Round Prep Snapshot (2026-03-22, Sunday ~12:50-13:00 Oslo)
 
 - Merge/deploy state:
