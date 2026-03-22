@@ -17,6 +17,11 @@
   If HEAD is behind main, do NOT make changes on the stale branch — create a fresh branch from
   `origin/main` instead. Multiple sessions run in parallel and merge PRs continuously, so
   worktrees go stale fast. A stale branch = guaranteed merge conflicts on the PR.
+- **PR merge assumption rule (all threads):** If I share a PR link, assume you may merge it immediately.
+  Before starting any follow-up work, I must either:
+  1) fetch and verify whether that PR is already merged into `origin/main`, or
+  2) explicitly ask you for confirmation if merge status is uncertain.
+  I must not reuse stale PR context by default.
 - During the competition we have access to a GCP account with no limit.
   - Google Cloud is an official partner of NM i AI 2026. Selected teams receive a free @gcplab.me account with a dedicated GCP project — no credit limits, no billing setup (we are one of those selected teams).
     - Cloud Run, Vertex AI, Compute Engine
