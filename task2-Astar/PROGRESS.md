@@ -1,5 +1,44 @@
 # Progress Report: Astar Island Operator (Task 2)
 
+## 0. Final-Round Prep Snapshot (2026-03-22, Sunday ~12:50-13:00 Oslo)
+
+- Merge/deploy state:
+  - PR #57 is merged to `main`.
+  - Task2 history archive commit `cd86f02` is present on `origin/main`.
+  - latest verified Cloud Run revision: `astar-operator-00004-bcv`.
+- Completed round outcomes now confirmed from organizer UI:
+  - Round 20: `62.8`
+  - Round 21: `66.4`
+  - Round 22: `59.3` (`#213/278`, weight `2.9253x`)
+- Hosted live snapshot after Round 22 close (between-round gap):
+  - `active_round.id/number=null/null`
+  - `queries.used/max=50/50`
+  - `submitted_count=5`
+  - `run_enabled=true`
+  - `deadline_guard_enabled=true`
+  - `last_error=null`
+  - `seconds_to_close=null`
+  - `model_version=null`
+  - `fallback_mode=model_artifact_missing`
+- Final round constraints from organizers (Slack):
+  - Round 23 is shorter than normal rounds.
+  - hard close at `2026-03-22 15:00 CET`.
+  - scores hidden until final reveal around `17:00 CET`.
+- Unattended reliability setup armed on GCP VM:
+  - script: `/home/kenneth/task2_round_autopilot.py`
+  - launcher: `/home/kenneth/start_task2_autopilot.sh`
+  - log: `/home/kenneth/task2_round_autopilot.log`
+  - patched final-round logic confirmed (`FINAL_ROUND_NUMBER = 23`)
+  - Round 23 checkpoints configured:
+    - baseline submit at `queries>=6`
+    - mid checkpoint submit at `queries>=30`
+    - late checkpoint submit at `queries>=48`
+    - final checkpoint submit at `T-15m`
+- Operating policy for this final window:
+  - monitor-first, reliability-first
+  - no manual submit intervention unless severe failure is detected
+  - keep floor safety (`0.01`) and deadline guard behavior unchanged.
+
 ## 0. Session Closeout Snapshot (2026-03-22, Sunday ~03:20 Oslo)
 
 - Fresh Task 2 PR created for this implementation pass:
