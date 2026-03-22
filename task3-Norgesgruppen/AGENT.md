@@ -1,8 +1,8 @@
 # AGENT.md — Task 3: NorgesGruppen Object Detection
 
 > NM i AI 2026 — Task 3 handoff/control file
-> Last updated: 2026-03-22 01:10 CET (Sunday, Oslo)
-> Status: Guarded ONNX candidate submitted successfully; score improved to `0.7626` with operator-reported rank jump to `#249`.
+> Last updated: 2026-03-22 01:29 CET (Sunday, Oslo)
+> Status: Guarded baseline (`0.7626`) preserved; class-agnostic NMS candidate validated and packaged as `submission_task3_agnostic_nms.zip` (awaiting submit decision).
 
 ---
 
@@ -111,6 +111,15 @@ Latest verified Task 3 checkpoint (from operator-shared submission + leaderboard
 - Submission artifact: `submission_task3_guarded.zip` (`138.2 MB`) containing `run.py` + `best.onnx`
 - Working hypothesis update: ONNX post-processing fixes (letterbox-aware scaling + class-aware NMS + clipping) were the primary improvement driver.
 
+Current bounded follow-up candidate (not submitted yet):
+- Change: class-aware NMS -> class-agnostic NMS only
+- VM full dry run: `45.674s` on `248` images
+- Predictions: `21,710` (baseline was `23,956`)
+- Local proxy eval on VM improved:
+  - baseline combo AP proxy `0.761466`
+  - candidate combo AP proxy `0.765064`
+- Candidate artifact: `task3-Norgesgruppen/submission_task3_agnostic_nms.zip`
+
 Important:
 - Older `#157` and `0.1786` notes remain historical context only.
 - Always include exact "last verified" timestamp when updating these fields.
@@ -140,14 +149,16 @@ Latest validated packaging flow (VM user `kenneth` workspace):
 ```bash
 cd ~/task3-recovery
 zip -j ~/submission_task3_guarded.zip run.py best.onnx
+zip -j ~/submission_task3_agnostic_nms.zip run.py best.onnx
 ```
 
 Download artifact from VM:
 ```bash
 gcloud compute scp yolo-training-vm:~/submission_task3_guarded.zip ~/submission_task3_guarded.zip --zone=europe-west1-c
+gcloud compute scp yolo-training-vm:~/submission_task3_agnostic_nms.zip ~/submission_task3_agnostic_nms.zip --zone=europe-west1-c
 ```
 
-Then upload `submission_task3_guarded.zip` in app UI.
+Then upload the chosen artifact in app UI (`submission_task3_guarded.zip` rollback-safe baseline, or `submission_task3_agnostic_nms.zip` bounded candidate).
 
 ---
 

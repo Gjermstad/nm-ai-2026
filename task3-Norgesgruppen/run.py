@@ -16,6 +16,7 @@ IOU_THRESHOLD = 0.70
 MAX_DETECTIONS_PER_IMAGE = 300
 ROUND_DIGITS_BBOX = 1
 ROUND_DIGITS_SCORE = 4
+CLASS_AGNOSTIC_NMS = True
 
 
 def parse_args() -> argparse.Namespace:
@@ -128,18 +129,20 @@ def scale_and_clip_boxes(
     return xyxy
 
 
-def class_aware_nms(xyxy: np.ndarray, scores: np.ndarray, classes: np.ndarray) -> np.ndarray:
+def run_nms(xyxy: np.ndarray, scores: np.ndarray, classes: np.ndarray) -> np.ndarray:
     if len(scores) == 0:
         return np.empty((0,), dtype=np.int64)
 
     boxes_t = torch.as_tensor(xyxy, dtype=torch.float32)
     scores_t = torch.as_tensor(scores, dtype=torch.float32)
-    classes_t = torch.as_tensor(classes, dtype=torch.float32)
-
-    # Offset boxes by class index to run class-aware NMS in one pass.
-    max_wh = 8192.0
-    nms_boxes = boxes_t + classes_t[:, None] * max_wh
-    keep = torchvision.ops.nms(nms_boxes, scores_t, IOU_THRESHOLD)
+    if CLASS_AGNOSTIC_NMS:
+        keep = torchvision.ops.nms(boxes_t, scores_t, IOU_THRESHOLD)
+    else:
+        classes_t = torch.as_tensor(classes, dtype=torch.float32)
+        # Offset boxes by class index to run class-aware NMS in one pass.
+        max_wh = 8192.0
+        nms_boxes = boxes_t + classes_t[:, None] * max_wh
+        keep = torchvision.ops.nms(nms_boxes, scores_t, IOU_THRESHOLD)
 
     if keep.numel() > MAX_DETECTIONS_PER_IMAGE:
         keep = keep[:MAX_DETECTIONS_PER_IMAGE]
@@ -207,7 +210,7 @@ def main() -> None:
         classes = decoded[:, 5].astype(np.int32)
 
         xyxy = scale_and_clip_boxes(boxes_xywh, ratio, pad_w, pad_h, orig_w, orig_h)
-        keep = class_aware_nms(xyxy, scores, classes)
+        keep = run_nms(xyxy, scores, classes)
         predictions.extend(build_json_predictions(image_id, xyxy, scores, classes, keep))
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
