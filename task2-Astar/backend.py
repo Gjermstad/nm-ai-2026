@@ -15,6 +15,7 @@ import requests
 
 from core import (
     CLASS_NAMES,
+    apply_learned_adjustments,
     cell_distribution,
     clamp_viewport,
     classify_deadline_risk,
@@ -183,6 +184,9 @@ class AstarService:
         base_url = os.getenv("ASTAR_BASE_URL", "https://api.ainm.no/astar-island")
         token = os.getenv("ASTAR_ACCESS_TOKEN")
         self.api = AstarApiClient(base_url=base_url, access_token=token, logs=self.logs)
+        default_model_path = Path(__file__).resolve().parent / "history" / "models" / "latest_linear_v1.json"
+        self.model_path = Path(os.getenv("ASTAR_MODEL_PATH", str(default_model_path)))
+        self.learned_model: Optional[Dict[str, Any]] = None
 
         self._lock = threading.RLock()
         self._running = False
@@ -200,8 +204,14 @@ class AstarService:
             "last_error_action": None,
             "token_present": bool(token),
             "started_at": iso_now(),
+            "model_version": None,
+            "feature_set_version": None,
+            "fallback_mode": "heuristic_default",
+            "learned_model_loaded": False,
+            "query_policy": self._default_query_policy(),
         }
         self._load_state()
+        self.reload_model()
 
     def start(self) -> None:
         with self._lock:
@@ -268,6 +278,129 @@ class AstarService:
     def _clear_error(self) -> None:
         self.state["last_error"] = None
         self.state["last_error_action"] = None
+
+    def _default_query_policy(self) -> Dict[str, Any]:
+        return {
+            "safe": {
+                "w_entropy": 1.0,
+                "w_unvisited": 0.05,
+                "w_settlement": 0.08,
+                "w_repeat": 2.0,
+                "w_late_settlement": 0.10,
+            },
+            "aggressive": {
+                "w_entropy": 1.6,
+                "w_unvisited": 0.02,
+                "w_settlement": 0.12,
+                "w_repeat": 1.0,
+                "w_late_settlement": 0.18,
+            },
+            "fairness_boost": 0.0,
+            "late_phase_bound": 1.0,
+        }
+
+    def _set_model_fallback(self, reason: str) -> Dict[str, Any]:
+        policy = self._default_query_policy()
+        with self._lock:
+            self.learned_model = None
+            self.state["learned_model_loaded"] = False
+            self.state["model_version"] = None
+            self.state["feature_set_version"] = None
+            self.state["fallback_mode"] = reason
+            self.state["query_policy"] = policy
+        return {
+            "model_loaded": False,
+            "model_version": None,
+            "feature_set_version": None,
+            "fallback_mode": reason,
+            "model_path": str(self.model_path),
+        }
+
+    def _validate_learned_model(self, model: Dict[str, Any]) -> Dict[str, Any]:
+        if model.get("schema_version") != "linear_v1":
+            raise ValueError("Unsupported schema_version")
+        if not isinstance(model.get("model_version"), str):
+            raise ValueError("Missing model_version")
+        prediction = model.get("prediction")
+        if not isinstance(prediction, dict):
+            raise ValueError("Missing prediction config")
+        bias = prediction.get("global_class_bias_correction")
+        if not (isinstance(bias, list) and len(bias) == 6):
+            raise ValueError("Invalid global_class_bias_correction")
+        terrain_corr = prediction.get("terrain_prior_corrections")
+        if not isinstance(terrain_corr, dict):
+            raise ValueError("Invalid terrain_prior_corrections")
+
+        for code_key, corr_entry in terrain_corr.items():
+            int(code_key)  # validate numeric key
+            if not isinstance(corr_entry, dict):
+                raise ValueError("Invalid terrain correction entry")
+            far = corr_entry.get("far")
+            if not (isinstance(far, list) and len(far) == 6):
+                raise ValueError("Invalid far terrain correction")
+            near = corr_entry.get("near", far)
+            if not (isinstance(near, list) and len(near) == 6):
+                raise ValueError("Invalid near terrain correction")
+
+        query_policy = model.get("query_policy")
+        if not isinstance(query_policy, dict):
+            raise ValueError("Missing query_policy")
+        for profile in ("safe", "aggressive"):
+            entry = query_policy.get(profile)
+            if not isinstance(entry, dict):
+                raise ValueError(f"Missing query policy for {profile}")
+            for key in ("w_entropy", "w_unvisited", "w_settlement", "w_repeat", "w_late_settlement"):
+                float(entry.get(key))
+        float(query_policy.get("fairness_boost", 0.0))
+        float(query_policy.get("late_phase_bound", 1.0))
+
+        return model
+
+    def reload_model(self) -> Dict[str, Any]:
+        if not self.model_path.exists():
+            return self._set_model_fallback("model_artifact_missing")
+
+        try:
+            payload = json.loads(self.model_path.read_text())
+            model = self._validate_learned_model(payload)
+        except Exception as exc:  # noqa: BLE001
+            self.logs.add("warning", "model_load_failed", "Failed to load learned model", error=str(exc))
+            return self._set_model_fallback("model_artifact_invalid")
+
+        query_policy = model.get("query_policy", self._default_query_policy())
+        with self._lock:
+            self.learned_model = model
+            self.state["learned_model_loaded"] = True
+            self.state["model_version"] = model.get("model_version")
+            self.state["feature_set_version"] = model.get("feature_set_version")
+            self.state["fallback_mode"] = "model_loaded"
+            self.state["query_policy"] = query_policy
+
+        self.logs.add(
+            "info",
+            "model_loaded",
+            "Learned model loaded",
+            model_version=model.get("model_version"),
+            model_path=str(self.model_path),
+        )
+        return {
+            "model_loaded": True,
+            "model_version": model.get("model_version"),
+            "feature_set_version": model.get("feature_set_version"),
+            "fallback_mode": "model_loaded",
+            "model_path": str(self.model_path),
+        }
+
+    def get_model_status(self) -> Dict[str, Any]:
+        with self._lock:
+            return {
+                "model_loaded": bool(self.state.get("learned_model_loaded")),
+                "model_version": self.state.get("model_version"),
+                "feature_set_version": self.state.get("feature_set_version"),
+                "fallback_mode": self.state.get("fallback_mode"),
+                "model_path": str(self.model_path),
+                "query_policy": copy.deepcopy(self.state.get("query_policy", self._default_query_policy())),
+            }
 
     def _worker_loop(self) -> None:
         while True:
@@ -561,6 +694,8 @@ class AstarService:
             active_round = self.state.get("active_round")
             seeds = self.state.get("seeds", {})
             scouting_plan = self.state.get("scouting_plan", [])
+            queries_max = max(int(self.state.get("queries", {}).get("max", 50)), 1)
+            query_policy = copy.deepcopy(self.state.get("query_policy", self._default_query_policy()))
         if not active_round:
             return None
 
@@ -579,8 +714,21 @@ class AstarService:
         best_score = float("-inf")
         width = int(active_round["width"])
         height = int(active_round["height"])
+        profile_weights = query_policy.get(profile, query_policy.get("safe", {}))
+        w_entropy = float(profile_weights.get("w_entropy", 1.0))
+        w_unvisited = float(profile_weights.get("w_unvisited", 0.05))
+        w_settlement = float(profile_weights.get("w_settlement", 0.08))
+        w_repeat = float(profile_weights.get("w_repeat", 2.0))
+        w_late_settlement = float(profile_weights.get("w_late_settlement", 0.10))
+        fairness_boost = float(query_policy.get("fairness_boost", 0.0))
+        late_phase_bound = max(0.0, min(float(query_policy.get("late_phase_bound", 1.0)), 1.0))
+        round_progress = max(0.0, min(float(queries_used) / float(queries_max), 1.0))
+        late_phase = min(round_progress, late_phase_bound)
+        min_seed_queries = min((int(seed.get("queries_used", 0)) for seed in seeds.values()), default=0)
+
         for seed_key, seed in seeds.items():
             sidx = int(seed_key)
+            seed_queries = int(seed.get("queries_used", 0))
             positions = generate_window_positions(width, height, window_size=15, step=5)
             for x, y in positions:
                 x, y, w, h = clamp_viewport(x, y, 15, 15, width, height)
@@ -598,9 +746,15 @@ class AstarService:
                         if seed["near_settlement_mask"][yy][xx]:
                             settlement_mass += 1
 
-                score = entropy_sum + 0.05 * unvisited + 0.08 * settlement_mass - repeat_penalty * 2.0
-                if profile == "aggressive":
-                    score = entropy_sum * 1.6 + 0.12 * settlement_mass + 0.02 * unvisited - repeat_penalty * 1.0
+                fairness_term = fairness_boost * max(0, (min_seed_queries + 1) - seed_queries)
+                score = (
+                    w_entropy * entropy_sum
+                    + w_unvisited * unvisited
+                    + w_settlement * settlement_mass
+                    - w_repeat * repeat_penalty
+                    + w_late_settlement * late_phase * settlement_mass
+                    + fairness_term
+                )
 
                 if score > best_score:
                     best_score = score
@@ -659,6 +813,7 @@ class AstarService:
         with self._lock:
             seeds = self.state.get("seeds", {})
             profile = self.state.get("profile", "safe")
+            learned_model = copy.deepcopy(self.learned_model) if self.state.get("learned_model_loaded") else None
 
             for seed in seeds.values():
                 width = seed["width"]
@@ -677,6 +832,13 @@ class AstarService:
                             observed_counts=counts,
                             near_settlement=near,
                             aggressive=(profile == "aggressive"),
+                            floor=floor,
+                        )
+                        dist = apply_learned_adjustments(
+                            distribution=dist,
+                            initial_code=initial_code,
+                            near_settlement=near,
+                            model=learned_model,
                             floor=floor,
                         )
                         seed["draft"][y][x] = dist
@@ -863,10 +1025,13 @@ class AstarService:
 
         seconds_left = self._seconds_to_close()
         risk = classify_deadline_risk(seconds_left if seconds_left is not None else 999999, submitted=submitted, total=max(total, 1))
+        query_policy = data.get("query_policy", self._default_query_policy())
+        profile = data.get("profile", "safe")
+        active_policy = query_policy.get(profile, query_policy.get("safe", {}))
 
         return {
             "run_enabled": data.get("run_enabled"),
-            "profile": data.get("profile"),
+            "profile": profile,
             "deadline_guard_enabled": data.get("deadline_guard_enabled"),
             "active_round": active_round,
             "queries": data.get("queries"),
@@ -877,6 +1042,15 @@ class AstarService:
             "token_present": data.get("token_present"),
             "last_error": data.get("last_error"),
             "last_error_action": data.get("last_error_action"),
+            "model_version": data.get("model_version"),
+            "feature_set_version": data.get("feature_set_version"),
+            "fallback_mode": data.get("fallback_mode"),
+            "query_policy": {
+                "profile": profile,
+                "weights": active_policy,
+                "fairness_boost": query_policy.get("fairness_boost", 0.0),
+                "late_phase_bound": query_policy.get("late_phase_bound", 1.0),
+            },
             "seeds": sorted(seed_summaries, key=lambda s: s["seed_index"]),
         }
 

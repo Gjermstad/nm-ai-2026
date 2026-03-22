@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from typing import Dict, List, Sequence, Tuple
+from typing import Any, Dict, List, Sequence, Tuple
 
 CLASS_NAMES = ["Empty", "Settlement", "Port", "Ruin", "Forest", "Mountain"]
 FLOAT_EPS = 1e-12
@@ -133,7 +133,80 @@ def cell_distribution(
     prior = prior_distribution(initial_code, near_settlement, aggressive)
     alpha = 5.5 if aggressive else 9.0
     posterior = [prior[i] * alpha + float(observed_counts[i]) for i in range(6)]
-    return normalize_with_floor(posterior, floor=floor)
+    distribution = normalize_with_floor(posterior, floor=floor)
+
+    observed_total = int(sum(max(0.0, float(v)) for v in observed_counts[:6]))
+    rare_obs = sum(max(0.0, float(observed_counts[i])) for i in (2, 3, 5))
+
+    # In low-evidence cells, keep rare tails conservative unless we have direct rare-class evidence.
+    if initial_code not in (2, 3, 5) and observed_total <= 1 and rare_obs <= 0:
+        caps = {2: 0.03, 3: 0.04, 5: 0.015}
+        reclaimed = 0.0
+        for i, cap in caps.items():
+            if distribution[i] > cap:
+                reclaimed += distribution[i] - cap
+                distribution[i] = cap
+
+        if reclaimed > FLOAT_EPS:
+            receivers = [0, 1, 4]  # Empty, Settlement, Forest
+            weights = [0.55, 0.15, 0.30]
+            for idx, weight in zip(receivers, weights):
+                distribution[idx] += reclaimed * weight
+            distribution = normalize_with_floor(distribution, floor=floor)
+
+    return distribution
+
+
+def _apply_temperature(distribution: Sequence[float], temperature: float, floor: float) -> List[float]:
+    bounded_temp = max(0.05, min(float(temperature), 3.0))
+    power = 1.0 / bounded_temp
+    scaled = [max(float(p), FLOAT_EPS) ** power for p in distribution]
+    return normalize_with_floor(scaled, floor=floor)
+
+
+def apply_learned_adjustments(
+    distribution: Sequence[float],
+    initial_code: int,
+    near_settlement: bool,
+    model: Dict[str, Any] | None,
+    floor: float,
+) -> List[float]:
+    if not model:
+        return list(distribution)
+
+    prediction_cfg = model.get("prediction")
+    if not isinstance(prediction_cfg, dict):
+        return list(distribution)
+
+    probs = normalize_with_floor([max(float(v), 0.0) for v in distribution], floor=floor)
+    max_abs = max(0.0, min(float(prediction_cfg.get("max_abs_correction", 0.12)), 0.5))
+
+    terrain_corr = prediction_cfg.get("terrain_prior_corrections", {})
+    if isinstance(terrain_corr, dict):
+        entry = terrain_corr.get(str(initial_code))
+        if isinstance(entry, dict):
+            key = "near" if near_settlement else "far"
+            corr = entry.get(key) or entry.get("far")
+            if isinstance(corr, list) and len(corr) == 6:
+                probs = [
+                    max(0.0, probs[i] + max(-max_abs, min(max_abs, float(corr[i]))))
+                    for i in range(6)
+                ]
+                probs = normalize_with_floor(probs, floor=floor)
+
+    global_bias = prediction_cfg.get("global_class_bias_correction")
+    if isinstance(global_bias, list) and len(global_bias) == 6:
+        probs = [
+            max(0.0, probs[i] + max(-max_abs, min(max_abs, float(global_bias[i]))))
+            for i in range(6)
+        ]
+        probs = normalize_with_floor(probs, floor=floor)
+
+    temperature = float(prediction_cfg.get("confidence_temperature", 1.0))
+    if abs(temperature - 1.0) > FLOAT_EPS:
+        probs = _apply_temperature(probs, temperature=temperature, floor=floor)
+
+    return normalize_with_floor(probs, floor=floor)
 
 
 def validate_prediction_tensor(

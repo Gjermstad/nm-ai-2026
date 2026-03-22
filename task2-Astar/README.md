@@ -39,7 +39,25 @@ Open [http://localhost:8080](http://localhost:8080).
 - `POST /submit/seed` with `{ "seed_index": 0 }`
 - `POST /submit/all`
 - `POST /guard/set` with `{ "enabled": true | false }`
+- `GET /model/status`
+- `POST /model/reload`
 - `GET /logs/recent?level=error&limit=200`
+
+## History-Aware Linear Model (v1)
+
+Train/update model artifact from archived history:
+
+```bash
+cd task2-Astar/history
+python3 train_linear_model.py
+```
+
+Run offline replay/backtest comparison:
+
+```bash
+cd task2-Astar/history
+python3 replay_evaluate_model.py
+```
 
 ## Deployment (Cloud Run)
 

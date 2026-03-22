@@ -1,8 +1,8 @@
 # AGENT.md — Task 2: Astar Island Operator
 
 > NM i AI 2026 — Task 2 handoff/control file
-> Last updated: 2026-03-21 (Saturday, Oslo)
-> Status: PR #35 and PR #36 are merged and deployed on Cloud Run revision `astar-operator-00003-xmc`. Round 17 completed at `51.7` avg (`5/5` submitted, `50/50` queries). Round 18 is active with `run_enabled=true`, `deadline_guard_enabled=true`, and current live state at `48/50` with `5/5` submitted.
+> Last updated: 2026-03-22 (Sunday, Oslo)
+> Status: PR #35 and PR #36 are merged and deployed on Cloud Run revision `astar-operator-00003-xmc`. Task2 history archive commit `cd86f02` (PR #52 branch content) is present on `origin/main`. Round 19 is active and baseline submitted (`5/5`), latest seen query state `45/50` with `run_enabled=true`. History-aware linear model v1 is integrated with strict runtime fallback. Fresh follow-up PR is open: `#57`.
 
 ---
 
@@ -35,12 +35,13 @@ Implemented components:
 - Backend service: `main.py`, `backend.py`, `core.py`
 - UI: `static/index.html`, `static/app.js`, `static/styles.css`
 - Docs: `SPEC.md`, `README.md`, `PROGRESS.md`, `PastRounds.md`
-- Tests: `tests/test_core.py` (9 passing)
+- Tests: `tests/test_core.py` + `tests/test_backend_model.py` (16 passing)
 
 Implemented internal endpoints:
 - `GET /health`, `GET /status`, `GET /seed/{seed_index}`
 - `POST /run/start`, `POST /run/stop`, `POST /profile/set`, `POST /draft/rebuild`
 - `POST /submit/seed`, `POST /submit/all`, `POST /guard/set`, `POST /auth/token`
+- `GET /model/status`, `POST /model/reload`
 - `GET /logs/recent`
 
 Persisted runtime state:
@@ -48,6 +49,9 @@ Persisted runtime state:
 
 Merged PR:
 - `https://github.com/Gjermstad/nm-ai-2026/pull/19`
+
+Open PR (this session):
+- `https://github.com/Gjermstad/nm-ai-2026/pull/57`
 
 ---
 
@@ -223,6 +227,40 @@ curl -sS "$BASE/status"
   - query loop naturally paused at `48/50` due built-in >30m hold rule in `_run_query_cycle_if_needed`
   - final live state for handoff: `run_enabled=true`, `deadline_guard_enabled=true`, `queries=48/50`, `submitted_count=5`, `last_error=null`
 
+### Round 19 low-evidence tail calibration (local patch, 2026-03-22)
+
+- Added a minimal calibration in `core.py` (no architecture change):
+  - for low-evidence cells (`<=1` observations) without direct Port/Ruin/Mountain evidence, cap tails to:
+    - `Port <= 0.03`
+    - `Ruin <= 0.04`
+    - `Mountain <= 0.015`
+  - reclaimed mass is redistributed to `Empty`/`Settlement`/`Forest` and re-normalized with existing floor protections.
+- Safety constraints preserved:
+  - floor safety remains `0.01` in submit paths.
+  - deadline guard behavior unchanged.
+- Measurable local effect (plains, near-settlement, aggressive, zero observations):
+  - rare-tail mass (`Port+Ruin+Mountain`) reduced from `0.114` to `0.085`.
+- Regression coverage added in `tests/test_core.py`:
+  - cap applies in low-evidence/no-rare-observation case.
+  - cap is skipped when direct rare-class evidence exists.
+
+### History-aware linear model v1 integration (2026-03-22)
+
+- Added deterministic trainer and model artifact path:
+  - `task2-Astar/history/train_linear_model.py`
+  - `task2-Astar/history/models/latest_linear_v1.json`
+- Added offline replay evaluator:
+  - `task2-Astar/history/replay_evaluate_model.py`
+  - output: `task2-Astar/history/summary/replay_eval_linear_v1.json`
+- Runtime integration:
+  - learned model auto-load at startup with schema validation (`linear_v1`)
+  - strict fallback to heuristic mode when artifact is missing/invalid
+  - learned corrections applied in `rebuild_drafts` only when model is loaded
+  - phase-B query scorer now uses learned weights + fairness boost + bounded late-phase feature
+- New runtime observability:
+  - `/status` now includes `model_version`, `feature_set_version`, `fallback_mode`, and `query_policy` summary
+  - `/model/status` and `/model/reload` are available for live checks/reload
+
 ---
 
 ## 5. Known Gaps To Address Next
@@ -250,6 +288,7 @@ curl -sS "$BASE/status"
 13. Refresh the API-derived archive in `task2-Astar/PastRounds.md` after completed rounds when authenticated access is available, including non-submitted rounds.
 14. Keep `task2-Astar/history/raw/api_snapshot_full.json.gz`, `task2-Astar/history/summary/api_snapshot_summary.json`, and `task2-Astar/history/summary/round_seed_diagnostics.json` refreshed so future sessions can recover full historical signal fast.
 15. Before model-tuning edits, ingest the latest diagnostics from `task2-Astar/history/summary/round_seed_diagnostics.json` into `task2-Astar/PastRounds.md` and record explicit calibration decisions.
+16. Keep low-evidence Port/Ruin/Mountain suppression conservative and measurable; if adjusting caps, update tests and log before/after tail mass in `PastRounds.md`.
 
 ---
 
