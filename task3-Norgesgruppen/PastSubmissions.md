@@ -76,8 +76,25 @@ For every submission cycle:
 - `OBSERVED` (operator-reported): Task 3 rank improved from `#309` to `#249`.
 - `OBSERVED` (operator-reported): Overall rank improved to `#230` out of `467` teams with points.
 - `OBSERVED`: Overall columns shown: `Detection 82.4`, `Tripletex 32.3`, `Astar Island 54.1`, `Total 56.3`.
-- `INFERRED`: The updated ONNX inference path (letterbox-aware rescaling + class-aware NMS + clipping) produced the main performance jump.
-- `DECISION`: Freeze this as current safe baseline; only run bounded follow-up tuning if expected gain outweighs submission risk.
+- `INFERRED`: ONNX post-processing fixes were a high-impact score lever and produced the current stable baseline.
+- `DECISION`: Freeze `submission_task3_guarded.zip` as rollback-safe baseline and only run bounded follow-up tuning passes.
+
+### Entry T3-CANDIDATE-006
+- Timestamp: `2026-03-22 01:29` (CET, Oslo)
+- Evidence source: direct VM baseline-vs-candidate logs on identical 248-image train set
+- `OBSERVED`: Only code change was NMS mode in `run.py` (class-aware -> class-agnostic via `CLASS_AGNOSTIC_NMS = True`).
+- `OBSERVED`: Baseline dry-run runtime `45.741s`; candidate runtime `45.674s`.
+- `OBSERVED`: Baseline predictions `23,956`; candidate predictions `21,710`.
+- `OBSERVED`: Schema check for both outputs returned `bad_records=0`.
+- `OBSERVED`: High-overlap cross-class duplicate pairs (IoU>=0.8) dropped from `2069` to `0`.
+- `OBSERVED`: Proxy weighted AP (`70/30`) improved from `0.761466` to `0.765064` in local IoU>=0.5 matching evaluation.
+- `OBSERVED`: Candidate artifact built and verified:
+  - VM path: `~/submission_task3_agnostic_nms.zip`
+  - Local path: `task3-Norgesgruppen/submission_task3_agnostic_nms.zip`
+  - Size: `139 MB`
+  - Zip root contents: `run.py`, `best.onnx`
+- `INFERRED`: Candidate is low-risk from runtime/schema perspective and likely improves leaderboard score versus current baseline.
+- `DECISION`: Submit exactly one bounded follow-up using `submission_task3_agnostic_nms.zip`, keep `submission_task3_guarded.zip` as immediate rollback if runtime or score regresses.
 
 ## 5. Active Hypothesis Queue
 

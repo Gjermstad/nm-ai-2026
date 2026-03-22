@@ -6,7 +6,36 @@
 - Timestamped leaderboard evidence must be appended when baseline status changes.
 - Before ending a Task 3 session, docs updates must be pushed to GitHub to avoid local-only data loss.
 
-## 1. Latest Session Update (2026-03-22, Sunday 01:10 CET)
+## 1. Latest Session Update (2026-03-22, Sunday 01:29 CET)
+
+- Applied one bounded code change in `task3-Norgesgruppen/run.py`:
+  - switched NMS from class-aware to class-agnostic
+  - no other preprocessing/decode/threshold/runtime logic changed
+  - rollback is one-flag (`CLASS_AGNOSTIC_NMS = False`)
+- VM validation reused existing Task 3 pattern:
+  - `CLOUDSDK_CONFIG=/tmp/gcloud-config`
+  - `gcloud compute ssh/scp ... --ssh-key-file=/tmp/gce_key`
+  - source model from `/home/devstar17301/nm-ai-2026/task3-Norgesgruppen/best.onnx`
+  - writable workspace `~/task3-recovery`
+  - runtime with `/opt/conda/bin/python`
+- Full dry-run comparison on `248` images:
+  - baseline runtime: `45.741s`
+  - candidate runtime: `45.674s`
+  - baseline predictions: `23,956`
+  - candidate predictions: `21,710`
+  - schema validity: `bad_records=0` for both
+- Proxy evaluation (IoU>=0.5 matching, weighted `70/30` combo proxy):
+  - baseline combo AP proxy: `0.761466`
+  - candidate combo AP proxy: `0.765064`
+  - baseline cross-class duplicate overlaps (IoU>=0.8): `2069`
+  - candidate cross-class duplicate overlaps (IoU>=0.8): `0`
+- Prepared candidate artifact:
+  - VM: `~/submission_task3_agnostic_nms.zip`
+  - Local: `task3-Norgesgruppen/submission_task3_agnostic_nms.zip` (`139 MB`)
+  - archive contents verified at zip root: `run.py`, `best.onnx`
+- `DECISION`: Candidate is technically safe and likely positive; keep `submission_task3_guarded.zip` as immediate rollback option.
+
+## 1.1 Prior Session Update (2026-03-22, Sunday 01:10 CET)
 
 - Guarded Task 3 submission succeeded.
 - `OBSERVED`: Submission history shows score `0.7626`, file size `138.2 MB`, runtime `17.5s`, status `Completed/Final`.
@@ -16,7 +45,7 @@
 - `INFERRED`: ONNX post-processing reliability fixes were the highest-impact short-term lever.
 - `DECISION`: Keep this candidate as current safe baseline and run only bounded follow-up tuning if there is clear expected gain.
 
-## 1.1 GCP Execution Pattern Used This Session (No Secrets)
+## 1.2 GCP Execution Pattern Used This Session (No Secrets)
 
 - Connectivity and VM ops used `CLOUDSDK_CONFIG=/tmp/gcloud-config`.
 - SSH/SCP used explicit key file `--ssh-key-file=/tmp/gce_key`.
@@ -26,7 +55,7 @@
 - Runtime validation used `/opt/conda/bin/python`.
 - VM-local ONNX CUDA provider warning (cuDNN mismatch) was handled by CPU fallback for validation.
 
-## 1.2 Candidate Build and Validation (2026-03-22, Sunday 00:42 CET)
+## 1.3 Candidate Build and Validation (2026-03-22, Sunday 00:42 CET)
 
 - Implemented a new Task 3 `run.py` ONNX inference pipeline in repo:
   - letterbox pre-processing with ratio/padding tracking
@@ -46,21 +75,21 @@
   - Archive content verified: `run.py` + `best.onnx` at zip root.
 - `DECISION`: Candidate is ready for one guarded Task 3 submission.
 
-## 1.3 Prior Checkpoint (2026-03-22, Sunday 00:02 Oslo)
+## 1.4 Prior Checkpoint (2026-03-22, Sunday 00:02 Oslo)
 
 - Leaderboard checkpoint recorded from operator-shared overall screenshot.
 - `OBSERVED`: Team row shows rank `#273`.
 - `OBSERVED`: Overall columns shown were `Detection 19.3`, `Tripletex 31.8`, `Astar Island 54.5`, `Total 35.2`.
 - `DECISION`: Preserve this checkpoint in Task 3 documentation to maintain cross-task context while prioritizing Task 3 score recovery.
 
-## 1.4 Task 3 Baseline Re-Verification (2026-03-21, Saturday 22:48 Oslo)
+## 1.5 Task 3 Baseline Re-Verification (2026-03-21, Saturday 22:48 Oslo)
 
 - `OBSERVED`: Task 3 score `0.1786` mAP.
 - `OBSERVED`: Task 3 rank `#301` out of `313` teams with points.
 - `OBSERVED`: Task 3 submission count shown was `1`.
 - `INFERRED`: Previously imported `#157` rank is stale historical context.
 
-## 1.5 Documentation Hardening Update (2026-03-21, Saturday ~23:55 Oslo)
+## 1.6 Documentation Hardening Update (2026-03-21, Saturday ~23:55 Oslo)
 
 - Refactored Task 3 handoff documentation for cross-session reliability.
 - Rewrote `task3-Norgesgruppen/AGENT.md` to add generic workflow protections proven in Task 1/2:
@@ -74,7 +103,7 @@
 - Established required workflow: append new submission evidence to `PastSubmissions.md` before/after each submission cycle.
 - No runtime code changes in this session; documentation/process hardening only.
 
-## 1.6 Historical Baseline Imported (Stale Until Re-Verified)
+## 1.7 Historical Baseline Imported (Stale Until Re-Verified)
 
 - Last known historical Task 3 status from prior AGENT notes:
   - score `0.1786` mAP
@@ -86,7 +115,7 @@
 
 ## 2. Next Actions
 
-1. Preserve `0.7626` as current Task 3 baseline; do not regress.
-2. If submission quota allows and expected value is high, run one bounded tuning attempt (confidence/NMS threshold only).
-3. Keep changes in a fresh PR whenever non-markdown files are involved.
-4. Continue same-session doc sync (`AGENT.md` + `PROGRESS.md` + `PastSubmissions.md`) with exact timestamps.
+1. Submit `task3-Norgesgruppen/submission_task3_agnostic_nms.zip` as the single bounded follow-up attempt.
+2. If submit runtime/errors regress, immediately rollback to `task3-Norgesgruppen/submission_task3_guarded.zip`.
+3. Record submission result with exact timestamp and `OBSERVED/INFERRED/DECISION` tags in `PastSubmissions.md`.
+4. Avoid additional code changes until this candidate result is known.
