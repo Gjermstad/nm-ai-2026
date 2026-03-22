@@ -197,6 +197,51 @@ All PRs up to #33 merged and deployed. Score: unknown (latest logs show auth err
 
 ---
 
+## 9. Operational workflow (how to deploy, submit, and read logs)
+
+### After merging a PR — deploy steps (Cloud Shell)
+Open Cloud Shell: https://shell.cloud.google.com/?project=ai-nm26osl-1730&show=terminal
+
+```bash
+cd ~/nm-ai-2026-1 && git pull
+```
+```bash
+cd ~/nm-ai-2026-1/task1-Tripletex && gcloud run deploy tripletex-agent --source . --region europe-north1 --project ai-nm26osl-1730 --allow-unauthenticated
+```
+
+⚠️ **CRITICAL: use `--allow-unauthenticated`** (NOT `--no-allow-unauthenticated`).
+Using `--no-allow-unauthenticated` strips the allUsers IAM binding and all validator calls return
+"The request was not authenticated" → 0% on every submission. Confirmed broken on 2026-03-22.
+
+If you accidentally deploy with `--no-allow-unauthenticated`, fix immediately:
+```bash
+gcloud run services add-iam-policy-binding tripletex-agent --member=allUsers --role=roles/run.invoker --region=europe-north1 --project=ai-nm26osl-1730
+```
+
+### Submit (competition page)
+URL: https://app.ainm.no/submit/tripletex
+- Enter endpoint: `https://tripletex-agent-997219197351.europe-north1.run.app`
+- Click Submit 4 times to queue 4 runs in parallel (each run is a different random task)
+- Sleep ~120s for all to finish, then read logs
+
+### Read logs (local terminal — gcloud must be authenticated)
+```bash
+gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=tripletex-agent" --limit=300 --format="value(textPayload)" --freshness=15m --project=ai-nm26osl-1730
+```
+Note: if local gcloud returns nothing, navigate to Cloud Shell and run the same command there.
+
+### Identify failures in logs
+Look for:
+```
+PROMPT: <task text>
+CALL N ERROR 422 | {"validationMessages": ...}
+CALL N: skipping — unresolved placeholder
+WARNING: Could not parse repair plan
+```
+Fast completions (< 15s) with 0% score = 403 token expired (unfixable) or IAM auth error (fixable).
+
+---
+
 ## 7. How to run locally (for reference)
 
 ```bash

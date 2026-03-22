@@ -72,7 +72,7 @@ The Cloud Shell working directory for ALL git and deploy operations is:
 cd ~/nm-ai-2026-1 && git pull
 ```
 ```bash
-cd ~/nm-ai-2026-1/task1-Tripletex && gcloud run deploy tripletex-agent --source . --region europe-north1 --project ai-nm26osl-1730 --no-allow-unauthenticated
+cd ~/nm-ai-2026-1/task1-Tripletex && gcloud run deploy tripletex-agent --source . --region europe-north1 --project ai-nm26osl-1730 --allow-unauthenticated
 ```
 
 ### Log reading (Cloud Shell)
@@ -314,7 +314,7 @@ git push -u origin fix/task1-<description>
 cd ~/nm-ai-2026-1 && git pull
 ```
 ```bash
-cd ~/nm-ai-2026-1/task1-Tripletex && gcloud run deploy tripletex-agent --source . --region europe-north1 --project ai-nm26osl-1730 --no-allow-unauthenticated
+cd ~/nm-ai-2026-1/task1-Tripletex && gcloud run deploy tripletex-agent --source . --region europe-north1 --project ai-nm26osl-1730 --allow-unauthenticated
 ```
 
 ---
