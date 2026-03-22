@@ -404,6 +404,7 @@ POST /supplier  (create a new supplier / leverandør):
         Address fields: postalAddress/physicalAddress — NOT visitingAddress.
   SEARCH FIRST — CRITICAL: If the task references an existing supplier (by org number or name), do GET /supplier?organizationNumber=X&fields=id,name,organizationNumber first (or GET /supplier?name=X&fields=id,name if no org number).
     If found (count > 0): use "$responses.N.values.0.id" for all downstream references — do NOT also POST /supplier for the same supplier — omit it entirely.
+    If NOT found (count=0): you MUST create the supplier first with POST /supplier (using the name from the task), then use "$responses.N.value.id" from the POST result for all downstream references.
 
 POST /department:
   REQUIRED: name
@@ -496,6 +497,11 @@ POST /activity  (create a new work activity — use when task asks to create an 
   Use "PROJECT_GENERAL_ACTIVITY" when creating an activity linked to a project.
   Use "GENERAL_ACTIVITY" for standalone general activities.
   Optional: description
+  CRITICAL: Do NOT include a "project", "projectId", or any project reference in the POST /activity body.
+    These fields do NOT exist on this endpoint and cause 422 "Feltet eksisterer ikke i objektet."
+    Activities are GLOBAL in Tripletex — they are NOT linked to a specific project at creation time.
+    The activityType field only classifies the activity; it does NOT link it to a project.
+    Just create the activity with name + activityType — nothing else.
   Example: {{"name": "Design", "description": "Design work", "activityType": "PROJECT_GENERAL_ACTIVITY"}}
 
 POST /timesheet/entry  (log worked hours — NOT /timesheet or /timeSheet):
@@ -613,6 +619,18 @@ Ledger voucher (bilag):
   SUPPLIER INVOICE VOUCHER: When posting to account 2400 (Leverandørgjeld), Tripletex REQUIRES supplier on that posting:
     {{"row": N, "account": {{"id": ACCOUNT_2400_ID}}, "amount": -TOTAL, "supplier": {{"id": SUPPLIER_ID}}}}
     Include supplier ONLY on the 2400 posting — not on expense or VAT postings.
+  CUSTOMER RECEIVABLE VOUCHER: When posting to account 1500 (Kundefordringer) in a manual voucher (e.g. currency exchange/disagio/agio entries), Tripletex REQUIRES customer on that posting:
+    {{"row": N, "account": {{"id": ACCOUNT_1500_ID}}, "amount": TOTAL, "customer": {{"id": CUSTOMER_ID}}}}
+    Include customer ONLY on the 1500 posting — not on revenue or VAT postings.
+  CURRENCY EXCHANGE (disagio/agio) PATTERN: When a customer has paid an invoice in foreign currency at a different exchange rate:
+    1. GET /customer?organizationNumber=X to find the customer
+    2. GET /invoice?customerId=$responses.0.values.0.id&fields=id,amountCurrency,currency(id,code),invoiceNumber to find the open invoice
+    3. PUT /invoice/$responses.1.values.0.id/:payment with params: paymentDate=TODAY, paymentTypeId=1, paidAmount=<invoice_amount_in_original_currency>
+       (paidAmount is the invoice face value in the invoice currency, e.g. 6605 for a 6605 EUR invoice)
+    4. Calculate exchange difference: (original_rate - payment_rate) * invoice_amount_in_foreign_currency
+       If disagio (loss): debit account 8160, credit account 1500 with customer
+       If agio (gain):    debit account 1500 with customer, credit account 8060
+    5. POST /ledger/voucher with the exchange difference posting (include customer on 1500 posting)
   SYSTEM-GENERATED POSTINGS ERROR: If you get 422 "Posteringene er systemgenererte og kan ikke opprettes eller endres på utsiden av Tripletex",
     it means Tripletex automatically generates those postings (e.g. accounts 1500 Kundefordringer, 2740, 3400 in invoice/reminder contexts).
     In that case: skip the voucher entirely — do NOT attempt to post to those accounts manually.
