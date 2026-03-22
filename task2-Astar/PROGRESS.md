@@ -1,5 +1,16 @@
 # Progress Report: Astar Island Operator (Task 2)
 
+## 0. README Human Retrospective Refresh (2026-03-22, Sunday ~13:35 Oslo)
+
+- Rewrote `task2-Astar/README.md` from short technical notes into a human-first project document.
+- New README now captures:
+  - task context and scoring implications,
+  - what was built (operator, safeguards, history learning, VM autopilot),
+  - what went wrong, what improved, and why,
+  - what we did right and what we could do better,
+  - explicit statement that the text is written before Round 23 closes (final outcome unknown at write time).
+- Existing operational commands were preserved and moved into a practical appendix section so the file remains actionable.
+
 ## 0. Round 23 Live Push Snapshot (2026-03-22, Sunday ~13:24 Oslo)
 
 - Final-round context:
