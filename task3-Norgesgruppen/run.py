@@ -11,12 +11,12 @@ from PIL import Image
 
 VALID_SUFFIXES = {".jpg", ".jpeg", ".png"}
 INPUT_SIZE = (640, 640)  # (height, width)
-CONF_THRESHOLD = 0.25
+CONF_THRESHOLD = 0.20
 IOU_THRESHOLD = 0.70
 MAX_DETECTIONS_PER_IMAGE = 300
 ROUND_DIGITS_BBOX = 1
 ROUND_DIGITS_SCORE = 4
-CLASS_AGNOSTIC_NMS = True
+CLASS_AGNOSTIC_NMS = False
 
 
 def parse_args() -> argparse.Namespace:

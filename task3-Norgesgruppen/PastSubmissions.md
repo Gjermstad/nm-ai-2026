@@ -96,6 +96,32 @@ For every submission cycle:
 - `INFERRED`: Candidate is low-risk from runtime/schema perspective and likely improves leaderboard score versus current baseline.
 - `DECISION`: Submit exactly one bounded follow-up using `submission_task3_agnostic_nms.zip`, keep `submission_task3_guarded.zip` as immediate rollback if runtime or score regresses.
 
+### Entry T3-RESULT-007
+- Timestamp: `2026-03-22 01:52` (Oslo, submission completion shown in UI)
+- Evidence source: operator-shared submission history screenshot
+- `OBSERVED`: Candidate submission score `0.7619` (no improvement vs `0.7626` baseline).
+- `OBSERVED`: Candidate runtime `18.9s` (baseline runtime `17.5s`).
+- `OBSERVED`: Candidate size `138.2 MB`.
+- `OBSERVED`: Submission row time window shown: `22. mars, 01:51 — 22. mars, 01:52`.
+- `INFERRED`: Class-agnostic NMS reduced duplicate predictions but likely removed beneficial class-retention behavior for competition scoring.
+- `DECISION`: Keep existing `0.7626` entry selected as final in UI; no rollback re-upload required.
+
+### Entry T3-CANDIDATE-008
+- Timestamp: `2026-03-22 02:05` (CET, Oslo)
+- Evidence source: direct VM baseline-vs-candidate logs on identical 248-image train set
+- `OBSERVED`: Candidate restores class-aware NMS and changes one lever only: `CONF_THRESHOLD 0.25 -> 0.20`.
+- `OBSERVED`: Baseline dry-run runtime `45.781s`; candidate runtime `45.768s`.
+- `OBSERVED`: Baseline predictions `23,956`; candidate predictions `25,712`.
+- `OBSERVED`: Schema check for both outputs returned `bad_records=0`.
+- `OBSERVED`: Proxy weighted AP (`70/30`) improved from `0.761466` to `0.782002` in local IoU>=0.5 matching evaluation.
+- `OBSERVED`: Candidate artifact built and verified:
+  - VM path: `~/submission_task3_conf020.zip`
+  - Local path: `task3-Norgesgruppen/submission_task3_conf020.zip`
+  - Size: `139 MB`
+  - Zip root contents: `run.py`, `best.onnx`
+- `INFERRED`: Lower confidence threshold may recover recall/classification opportunities while keeping runtime stable.
+- `DECISION`: Submit exactly one bounded follow-up using `submission_task3_conf020.zip`; keep `0.7626` selected final unless this beats it.
+
 ## 5. Active Hypothesis Queue
 
 ### HYP-001: ONNX decoding/parsing correctness
