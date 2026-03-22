@@ -303,3 +303,26 @@ Read in this order for Task 3 optimization:
 2. `task3-Norgesgruppen/PROGRESS.md`
 3. `task3-Norgesgruppen/PastSubmissions.md`
 4. Task 3 docs in folder (`task3_docs_*.md`)
+
+## 8. Future Playbook (Task 3 + General Agentic AI)
+
+### 8.1 Repeat (High ROI Behaviors)
+1. Begin with a freshness gate (`fetch/pull`, merge check, read-order discipline).
+2. Keep one-variable submission changes and pre-write hypothesis/rollback.
+3. Preserve one known-good final row before every high-risk attempt.
+4. Log every result immediately with exact timestamp and artifact name.
+5. Prioritize high-upside model/inference correctness work over repeated small threshold nudges when quota is tight.
+
+### 8.2 Avoid (Failure Patterns)
+1. Avoid trusting local proxy improvements as sufficient proof of leaderboard gain.
+2. Avoid coupled changes that combine multiple hypotheses in one submission.
+3. Avoid local-only memory (notes not yet in repo) when handoffs/merges are likely.
+4. Avoid quota burn on low-expected-value tweaks near the end of a submission window.
+5. Avoid long unattended runs without checkpoint outputs and recovery notes.
+
+### 8.3 General Agentic AI Rules to Carry Forward
+1. Facts first: separate `OBSERVED` from `INFERRED` from `DECISION`.
+2. Decision hygiene: pause before irreversible actions (submissions, costly jobs) and confirm intent.
+3. Traceability: keep a reproducible chain (artifact, command pattern, timestamp, outcome).
+4. Momentum with safety: run aggressive experiments only when rollback-safe baseline is secured.
+5. Learning loop: every action should either improve score or improve the next decision quality.
