@@ -356,15 +356,19 @@ POST /employee/employment/details  (set salary, employment percentage, job code)
     "employmentType": "ORDINARY", "employmentForm": "PERMANENT", "workingHoursScheme": "NOT_SHIFT"}}
 
 GET /employee/employment/occupationCode  (look up job code / stillingskode / Berufsschlüssel):
-  CRITICAL: Do NOT use any filter params — neither code= nor nameNO= reliably filters.
-  ALWAYS fetch ALL codes without any filter:
-    params: {{"fields": "id,nameNO,code"}}  ← no code=, no nameNO=, nothing else
-  This returns all ~140 codes. Scan the full list to find the correct entry:
-    - If the task/PDF provides a numeric STYRK/ISCO code (e.g. "4110"):
-        Look for the entry whose code field starts with that number (e.g. "4110101" starts with "4110").
-        Do NOT pass code="4110" as a param — it is IGNORED and returns all 140 results.
-    - If the task/PDF provides a job title (e.g. "Regnskapsfører", "Kontorfullmektig"):
-        Look for the entry whose nameNO most closely matches that title.
+  The list may have 100–7000+ entries. Strategy depends on what the task provides:
+  - If the task/PDF provides a job title (e.g. "Regnskapsfører", "Kontorfullmektig"):
+      Use nameNO= filter to narrow results — returns only matching entries:
+        params: {{"nameNO": "<TITLE_IN_UPPERCASE>", "fields": "id,nameNO,code"}}
+      This returns a small list. Use $responses.N.values.0.id as the occupationCode.id.
+      Example: nameNO=REGNSKAPSFORER (use uppercase, drop Norwegian special chars if needed)
+  - If the task/PDF provides ONLY a numeric STYRK/ISCO code (e.g. "4110") with no job title:
+      Fetch ALL codes without filter: params: {{"fields": "id,nameNO,code"}}
+      CRITICAL: Do NOT use JSONPath filter expressions like $responses.N.values[?(@.code...)] — NOT supported.
+      Instead: use "$responses.N.value.id" (note: .value not .values) as placeholder for occupationCode.id.
+      This placeholder will fail to resolve (list responses use .values), causing the call to be skipped.
+      The repair pass will then provide the full code list so you can hardcode the correct id there.
+  - Do NOT pass code= as a filter param — it is IGNORED and returns all results.
   Use the id from the matching entry as occupationCode.id in POST /employee/employment/details.
   Only call this if the task explicitly provides a job/occupation code or job title requiring a code.
 
@@ -709,8 +713,12 @@ def build_repair_prompt(original_prompt: str, today: str, responses: list, error
             if fields:
                 succeeded.append(f"  Step {i} (single): {fields}")
         elif vs:
-            summary = [{k: item[k] for k in _FIELDS if item.get(k)} for item in vs[:3]]
-            succeeded.append(f"  Step {i} (list, first {len(summary)}): {summary}")
+            # Include full item data so repair pass can scan large lists (e.g. occupationCode lookup)
+            full_json = json.dumps(vs, ensure_ascii=False)
+            if len(full_json) <= 8000:
+                succeeded.append(f"  Step {i} (list, {len(vs)} items): {full_json}")
+            else:
+                succeeded.append(f"  Step {i} (list, {len(vs)} items, truncated):\n{full_json[:8000]}...")
 
     success_section = ("\n".join(succeeded)) if succeeded else "  (none)"
 
@@ -752,6 +760,9 @@ FAILED CALLS:
 {skipped_section}
 Read the error messages carefully and generate corrected calls.
 Each call object MUST use "endpoint" (not "path" or "url") for the URL path field.
+OCCUPATION CODE REMINDER: If a previously succeeded step returned a list of occupation codes (items with nameNO and code fields),
+scan that FULL list to find the entry matching the required STYRK/occupation code prefix or job title.
+Hardcode the correct id (do NOT use any placeholder) in any repaired employment/details call.
 REMINDER for POST /ledger/voucher: only valid fields are date, description, postings.
   Each posting only has: account ({{id}}), amount, optionally description.
   DO NOT use voucherRows, voucherType, supplier, department, customDimensions, vouchers — these cause 422.
