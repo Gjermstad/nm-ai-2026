@@ -1,17 +1,25 @@
 # Progress Report: Tripletex AI Accounting Agent
 
-## 1. Current state (2026-03-22 ~00:00 CET)
+## 1. Current state (2026-03-22 ~03:05 CET)
 
-All PRs up to #33 merged and deployed. Score: unknown (latest logs show auth errors). 29/30 task types seen. 1 remaining task type undiscovered.
+**Score: ~28.7 | Rank: ~#241 of 396 teams | All 30 task types seen**
 
-**Known open bugs (pre-this-PR):**
-- Duplicate entity creation: GET /customer finds entity but Gemini still POSTs → cascade failure (fixed this PR: SEARCH FIRST for customer + department)
-- Same issue for GET /employee: found but still POSTed, downstream refs wrong response index (strengthened this PR)
-- Auth errors (0/10, 0/7): fixed by `gcloud run services add-iam-policy-binding --member allUsers --role roles/run.invoker`
+Deployed revision: `tripletex-agent-00058-6z5`
+
+PRs merged this session (Mar 22, ~01:00–03:05):
+- **PR #53**: Added `nationalIdentityNumber` to employee fields + `workingHoursScheme` valid values (also introduced `{voucherId}` f-string bug — fixed in #61)
+- **PR #55**: Fixed occupationCode: fetch all codes without filter, scan full list
+- **PR #58**: Fixed deploy command: `--allow-unauthenticated` (was `--no-allow-unauthenticated`)
+- **PR #61** (CRITICAL): Fixed f-string crash — `{voucherId}` → `{{voucherId}}` in build_llm_prompt; caused HTTP 500 on every request from PR #53 deploy until #61
+- **PR #63**: Fixed occupationCode repair pass — repair prompt now includes full list JSON (8000 chars); use nameNO= filter when job title given; use .value (not .values) placeholder to intentionally trigger repair pass for numeric-only STYRK codes
+
+**Known remaining issues:**
+- occupationCode lookup for large lists (7116 codes, only first 1000 returned alphabetically): if target code is late alphabetically and no job title, repair pass may not find it
+- Auto-submit loop runs in browser — dies if Mac sleeps (Mac must stay awake)
 
 **Deployed URL:** `https://tripletex-agent-997219197351.europe-north1.run.app`
 
-**Tier 3 tasks** live since ~11:00 CET March 21. Competition ends March 22 15:00 CET (~16h remaining).
+Competition ends March 22 15:00 CET.
 
 ---
 
@@ -199,13 +207,17 @@ All PRs up to #33 merged and deployed. Score: unknown (latest logs show auth err
 
 ## 9. Operational workflow (how to deploy, submit, and read logs)
 
-### After merging a PR — deploy steps (Cloud Shell)
-Open Cloud Shell: https://shell.cloud.google.com/?project=ai-nm26osl-1730&show=terminal
+### After merging a PR — deploy steps (local terminal)
+Deploy can be run from the LOCAL terminal (no need for Cloud Shell):
+```bash
+cd /Users/kenneth/git/annet/nmiai/nm-ai-2026/task1-Tripletex
+gcloud run deploy tripletex-agent --source . --region europe-north1 --project ai-nm26osl-1730 --allow-unauthenticated --quiet
+```
 
+Or via Cloud Shell if local gcloud is not authenticated:
+Open: https://shell.cloud.google.com/?project=ai-nm26osl-1730&show=terminal
 ```bash
 cd ~/nm-ai-2026-1 && git pull
-```
-```bash
 cd ~/nm-ai-2026-1/task1-Tripletex && gcloud run deploy tripletex-agent --source . --region europe-north1 --project ai-nm26osl-1730 --allow-unauthenticated
 ```
 
@@ -219,16 +231,67 @@ gcloud run services add-iam-policy-binding tripletex-agent --member=allUsers --r
 ```
 
 ### Submit (competition page)
-URL: https://app.ainm.no/submit/tripletex
-- Enter endpoint: `https://tripletex-agent-997219197351.europe-north1.run.app`
-- Click Submit 4 times to queue 4 runs in parallel (each run is a different random task)
-- Sleep ~120s for all to finish, then read logs
+URL: **https://app.ainm.no/submit/tripletex**
+
+Competition API endpoint (for scripting):
+```
+POST https://api.ainm.no/tasks/cccccccc-cccc-cccc-cccc-cccccccccccc/submissions
+Body: {"endpoint_url": "https://tripletex-agent-997219197351.europe-north1.run.app", "endpoint_api_key": null}
+Auth: requires browser session cookie (credentials: include) — cookie is HttpOnly, not accessible via JS
+```
+
+Manual: Enter endpoint `https://tripletex-agent-997219197351.europe-north1.run.app`, click Submit 4 times, wait ~120s, read logs.
+
+### Auto-submit loop (runs in browser console on https://app.ainm.no/submit/tripletex)
+Paste this into the browser console on the competition page. **Mac must stay awake** — JS timers freeze on sleep.
+
+```javascript
+window._autoSubmitRunning = false;
+clearTimeout(window._autoSubmitTimer);
+
+const ENDPOINT = 'https://tripletex-agent-997219197351.europe-north1.run.app';
+const TASK_ID = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
+const BATCH = 4;
+const INTERVAL_MS = 3 * 60 * 1000; // 3 minutes between batches
+
+async function submitOnce(n) {
+  const res = await fetch(`https://api.ainm.no/tasks/${TASK_ID}/submissions`, {
+    method: 'POST', credentials: 'include',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({endpoint_url: ENDPOINT, endpoint_api_key: null})
+  });
+  console.log(`[autoSubmit] Submit #${n} → HTTP ${res.status}`);
+  return res.status;
+}
+
+async function runBatch() {
+  if (!window._autoSubmitRunning) { console.log('[autoSubmit] Stopped.'); return; }
+  for (let i = 1; i <= BATCH; i++) {
+    await submitOnce(window._autoSubmitCount + i);
+    if (i < BATCH) await new Promise(r => setTimeout(r, 5000));
+  }
+  window._autoSubmitCount += BATCH;
+  console.log(`[autoSubmit] Batch done (${window._autoSubmitCount} total). Next in ${INTERVAL_MS/1000}s`);
+  window._autoSubmitTimer = setTimeout(runBatch, INTERVAL_MS);
+}
+
+window._autoSubmitRunning = true;
+window._autoSubmitCount = 0;
+console.log('[autoSubmit] Clean restart at ' + new Date().toLocaleTimeString());
+runBatch();
+```
+
+Check loop status: `window._autoSubmitRunning + " | count: " + window._autoSubmitCount`
+Stop loop: `window._autoSubmitRunning = false`
+
+⚠️ If the loop stops after one batch (Mac slept), paste the full script again to restart.
 
 ### Read logs (local terminal — gcloud must be authenticated)
 ```bash
-gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=tripletex-agent" --limit=300 --format="value(textPayload)" --freshness=15m --project=ai-nm26osl-1730
+gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.service_name="tripletex-agent"' \
+  --project=ai-nm26osl-1730 --format='value(timestamp,textPayload)' --limit=300 2>&1
 ```
-Note: if local gcloud returns nothing, navigate to Cloud Shell and run the same command there.
+Note: if local gcloud returns nothing, use Cloud Shell instead.
 
 ### Identify failures in logs
 Look for:
