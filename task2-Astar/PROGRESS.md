@@ -1,6 +1,26 @@
 # Progress Report: Astar Island Operator (Task 2)
 
-## 0. Latest Session Update (2026-03-22, Sunday ~00:25 Oslo)
+## 0. Latest Session Update (2026-03-22, Sunday ~01:05 Oslo)
+
+- Added full machine-readable Task 2 history archive under `task2-Astar/history/`:
+  - `raw/api_snapshot_full.json.gz`
+  - `summary/api_snapshot_summary.json`
+  - `summary/my_rounds_raw.json`
+  - `summary/api_snapshot_meta.json`
+  - `summary/round_seed_diagnostics.json`
+- Added history tooling:
+  - `task2-Astar/history/export_api_snapshot.py`
+  - `task2-Astar/history/build_diagnostics_from_snapshot.py`
+  - `task2-Astar/history/README.md`
+- Updated `task2-Astar/AGENT.md` with explicit next-thread loading/refresh paths:
+  - read `AGENT.md` -> `PROGRESS.md` -> `PastRounds.md` -> `SPEC.md`
+  - then load history summaries from `task2-Astar/history/summary/`
+  - refresh command documented:
+    - `cd task2-Astar/history && python3 export_api_snapshot.py && python3 build_diagnostics_from_snapshot.py`
+- Handoff intent:
+  - future sessions should not rely only on screenshots; use `PastRounds.md` + history summaries together before tuning.
+
+## 0.1 Previous Session Update (2026-03-22, Sunday ~00:25 Oslo)
 
 - Expanded `task2-Astar/PastRounds.md` with a new API-derived historical archive section covering all rounds (`1..18` at fetch time).
 - Added round-by-round team ledger from authenticated API (`my-rounds`), including submitted and non-submitted rounds:
@@ -19,7 +39,7 @@
 - Operational outcome:
   - we now have enough historical signal to tune priors from real ground-truth statistics instead of screenshot-only inference.
 
-## 0.1 Previous Session Update (2026-03-21, Saturday ~23:35 Oslo)
+## 0.2 Previous Session Update (2026-03-21, Saturday ~23:35 Oslo)
 
 - Created new long-form screenshot memory file:
   - `task2-Astar/PastRounds.md`
@@ -41,7 +61,7 @@
 - Explicit process reminder:
   - after every completed round, save screenshots to `task2-Astar/screenshots/` and update `task2-Astar/PastRounds.md` in the same session to avoid knowledge loss.
 
-## 0.2 Previous Session Update (2026-03-21, Saturday ~23:00 Oslo)
+## 0.3 Previous Session Update (2026-03-21, Saturday ~23:00 Oslo)
 
 - Round 17 final organizer result confirmed from screenshots:
   - average: `51.7` points
@@ -69,7 +89,7 @@
   - do not block the chat by waiting in long hold loops; arm run and return availability
   - if operator says “wait with submit”, do not call submit endpoints until explicit go-ahead
 
-## 0.3 Previous Session Update (2026-03-21, Saturday ~20:50 Oslo)
+## 0.4 Previous Session Update (2026-03-21, Saturday ~20:50 Oslo)
 
 - Incorporated Round 16 post-mortem screenshots (all 5 seeds, layer-analysis) for calibration:
   - consistent pattern found: `Empty` underprediction and overly diffuse `Settlement`/`Port`/`Ruin` mass
@@ -88,7 +108,7 @@
   - tuning patch prepared and pushed to PR branch for review
   - intentionally not auto-deployed mid-round.
 
-## 0.4 Previous Session Update (2026-03-21, Saturday ~20:38 Oslo)
+## 0.5 Previous Session Update (2026-03-21, Saturday ~20:38 Oslo)
 
 - Goal for this pass: maximize Round 17 score while preserving deadline safety.
 - Live hosted optimization run executed on `https://astar-operator-u4ol5cv7ra-lz.a.run.app`:
@@ -117,7 +137,7 @@
   - `task2-Astar/tests/test_core.py`: added regression for near-floor float roundoff in validation
   - local tests: `pytest -q task2-Astar/tests/test_core.py` => `7 passed`
 
-## 0.5 Previous Session Update (2026-03-21, Saturday ~20:12 Oslo)
+## 0.6 Previous Session Update (2026-03-21, Saturday ~20:12 Oslo)
 
 - Continued Task 2 with required file-read order:
   - `task2-Astar/AGENT.md`
@@ -147,7 +167,7 @@
   - no architecture changes
   - floor safety (`0.01`) and deadline guard behavior unchanged
 
-## 0.6 Previous Session Update (2026-03-21, Saturday ~20:02 Oslo)
+## 0.7 Previous Session Update (2026-03-21, Saturday ~20:02 Oslo)
 
 - Deployed Task 2 service to Cloud Run in GCP project `ai-nm26osl-1730`:
   - service: `astar-operator`

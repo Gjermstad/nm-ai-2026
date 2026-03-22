@@ -74,6 +74,12 @@ API source for historical analysis (when authenticated token is available):
 - `GET /astar-island/my-rounds`
 - `GET /astar-island/analysis/{round_id}/{seed_index}` for seeds `0..4`
 - Store derived aggregates in `task2-Astar/PastRounds.md` (Section 11).
+- Store machine-readable archive in `task2-Astar/history/`:
+  - `raw/api_snapshot_full.json.gz`
+  - `summary/api_snapshot_summary.json`
+  - `summary/round_seed_diagnostics.json`
+- Refresh history files with:
+  - `cd task2-Astar/history && python3 export_api_snapshot.py && python3 build_diagnostics_from_snapshot.py`
 
 ---
 
@@ -242,6 +248,8 @@ curl -sS "$BASE/status"
 11. If operator says to wait before submitting, do not execute submit endpoints until explicit go-ahead.
 12. Ingest all newly added round screenshots from `task2-Astar/screenshots/` into `task2-Astar/PastRounds.md` before making new model-tuning choices.
 13. Refresh the API-derived archive in `task2-Astar/PastRounds.md` after completed rounds when authenticated access is available, including non-submitted rounds.
+14. Keep `task2-Astar/history/raw/api_snapshot_full.json.gz`, `task2-Astar/history/summary/api_snapshot_summary.json`, and `task2-Astar/history/summary/round_seed_diagnostics.json` refreshed so future sessions can recover full historical signal fast.
+15. Before model-tuning edits, ingest the latest diagnostics from `task2-Astar/history/summary/round_seed_diagnostics.json` into `task2-Astar/PastRounds.md` and record explicit calibration decisions.
 
 ---
 
@@ -249,4 +257,4 @@ curl -sS "$BASE/status"
 
 Use this when starting a new session:
 
-"Continue Task 2 Astar from `task2-Astar`. Read `AGENT.md`, `PROGRESS.md`, `PastRounds.md`, and `SPEC.md` first. If new files exist in `task2-Astar/screenshots/`, ingest them into `PastRounds.md` before proposing model tuning. Then check hosted `/status` and optimize live round operations without long blocking waits: run to ~40, rebuild+submit baseline, keep run enabled, and re-check near deadline for final lock-in. Respect operator preferences: never reuse merged PRs, and never submit when asked to wait. Report `queries.used/max`, `submitted_count`, `run_enabled`, `deadline_guard_enabled`, `last_error`, and `seconds_to_close`."
+"Continue Task 2 Astar from `task2-Astar`. Read `AGENT.md`, `PROGRESS.md`, `PastRounds.md`, and `SPEC.md` first. Then load `task2-Astar/history/summary/api_snapshot_summary.json` and `task2-Astar/history/summary/round_seed_diagnostics.json` for calibration context. If new files exist in `task2-Astar/screenshots/`, ingest them into `PastRounds.md` before proposing model tuning. Then check hosted `/status` and optimize live round operations without long blocking waits: run to ~40, rebuild+submit baseline, keep run enabled, and re-check near deadline for final lock-in. Respect operator preferences: never reuse merged PRs, and never submit when asked to wait. Report `queries.used/max`, `submitted_count`, `run_enabled`, `deadline_guard_enabled`, `last_error`, and `seconds_to_close`."
