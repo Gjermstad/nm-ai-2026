@@ -356,11 +356,16 @@ POST /employee/employment/details  (set salary, employment percentage, job code)
     "employmentType": "ORDINARY", "employmentForm": "PERMANENT", "workingHoursScheme": "NOT_SHIFT"}}
 
 GET /employee/employment/occupationCode  (look up job code / stillingskode / Berufsschlüssel):
-  WARNING: The "code" filter param does NOT work — it returns all codes regardless.
-  Instead, filter by name: params: nameNO="Regnskap" (partial name match), fields="id,nameNO,code"
-  If the task provides a numeric STYRK/ISCO code (e.g. "4110"), search by nameNO containing the job title
-  associated with that code. Do NOT filter by code= as it is ignored.
-  Use the id from the matching result as occupationCode.id in POST /employee/employment/details.
+  CRITICAL: Do NOT use any filter params — neither code= nor nameNO= reliably filters.
+  ALWAYS fetch ALL codes without any filter:
+    params: {{"fields": "id,nameNO,code"}}  ← no code=, no nameNO=, nothing else
+  This returns all ~140 codes. Scan the full list to find the correct entry:
+    - If the task/PDF provides a numeric STYRK/ISCO code (e.g. "4110"):
+        Look for the entry whose code field starts with that number (e.g. "4110101" starts with "4110").
+        Do NOT pass code="4110" as a param — it is IGNORED and returns all 140 results.
+    - If the task/PDF provides a job title (e.g. "Regnskapsfører", "Kontorfullmektig"):
+        Look for the entry whose nameNO most closely matches that title.
+  Use the id from the matching entry as occupationCode.id in POST /employee/employment/details.
   Only call this if the task explicitly provides a job/occupation code or job title requiring a code.
 
 PUT /employee/{{id}}:
