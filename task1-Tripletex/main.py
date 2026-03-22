@@ -639,7 +639,7 @@ The following endpoints return 404 or 405 and must never be called:
   PUT /invoice/{{id}}/:reversePayment    → 404. Does NOT exist.
   POST /invoice/payment                  → 405. Does NOT exist. Use PUT /invoice/{{id}}/:payment instead.
   If a task asks to reverse a bank return (bankretur) so the invoice shows as outstanding again:
-    Use PUT /ledger/voucher/{voucherId}/:reverse?date=TODAY (see bank return reversal pattern above).
+    Use PUT /ledger/voucher/{{voucherId}}/:reverse?date=TODAY (see bank return reversal pattern above).
     Do NOT use :reversePayment. Do NOT use :createCreditNote (that cancels the invoice, not restores it).
 
 === BETA ENDPOINTS — NEVER USE (returns 403 Forbidden) ===
