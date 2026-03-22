@@ -1,8 +1,8 @@
 # AGENT.md — Task 3: NorgesGruppen Object Detection
 
 > NM i AI 2026 — Task 3 handoff/control file
-> Last updated: 2026-03-22 02:22 CET (Sunday, Oslo)
-> Status: `CONF_THRESHOLD=0.20` class-aware pass improved score to `0.7780`; newest row is selected as final.
+> Last updated: 2026-03-22 02:48 CET (Sunday, Oslo)
+> Status: `0.7780` remains selected final; one-variable `IOU_THRESHOLD=0.65` candidate is validated and packaged (`submission_task3_iou065.zip`) while overnight high-upside retraining is running on VM.
 
 ---
 
@@ -75,6 +75,12 @@ Use this exact style for future sessions:
 5. Known nuance:
    - ONNX CUDA provider failed on VM due local cuDNN mismatch, so VM validation ran on CPU.
    - Competition sandbox still has its own GPU environment; do not infer sandbox failure from this VM-local CUDA warning.
+6. Overnight high-upside training job (launched `2026-03-22 02:39 CET`):
+   - PID: `649159`
+   - launcher: `~/task3-recovery/overnight_bigtrain.py`
+   - log: `~/task3-recovery/overnight_bigtrain.log`
+   - summary target: `/home/kenneth/task3-overnight/overnight_summary.txt`
+   - run order: `ft_beststripped_img960_e220` then `ft_yolov8l_img960_e260`
 
 ---
 
@@ -126,6 +132,16 @@ Most recent successful bounded pass:
   - candidate combo AP proxy `0.782002`
 - Artifact submitted: `task3-Norgesgruppen/submission_task3_conf020.zip`
 
+Newest bounded candidate (not submitted yet):
+- Change tested: keep class-aware NMS and `CONF_THRESHOLD=0.20`, lower `IOU_THRESHOLD` from `0.70` to `0.65` only
+- VM full dry run: `45.683s` on `248` images
+- Predictions: `25,568` (`bad_records=0`)
+- Local proxy eval on VM (custom IoU>=0.5 weighted `70/30`):
+  - `conf020` combo proxy `0.824353`
+  - `iou065` combo proxy `0.824723` (`+0.000370`)
+- Artifact prepared: `task3-Norgesgruppen/submission_task3_iou065.zip` (`138 MB`)
+- Decision: keep as optional fallback candidate; prioritize higher-upside retraining outputs before spending limited submissions.
+
 Important:
 - Older `#157` and `0.1786` notes remain historical context only.
 - Always include exact "last verified" timestamp when updating these fields.
@@ -158,6 +174,7 @@ cd ~/task3-recovery
 zip -j ~/submission_task3_guarded.zip run.py best.onnx
 zip -j ~/submission_task3_agnostic_nms.zip run.py best.onnx
 zip -j ~/submission_task3_conf020.zip run.py best.onnx
+zip -j ~/submission_task3_iou065.zip run.py best.onnx
 ```
 
 Download artifact from VM:
@@ -165,9 +182,10 @@ Download artifact from VM:
 gcloud compute scp yolo-training-vm:~/submission_task3_guarded.zip ~/submission_task3_guarded.zip --zone=europe-west1-c
 gcloud compute scp yolo-training-vm:~/submission_task3_agnostic_nms.zip ~/submission_task3_agnostic_nms.zip --zone=europe-west1-c
 gcloud compute scp yolo-training-vm:~/submission_task3_conf020.zip ~/submission_task3_conf020.zip --zone=europe-west1-c
+gcloud compute scp yolo-training-vm:~/submission_task3_iou065.zip ~/submission_task3_iou065.zip --zone=europe-west1-c
 ```
 
-Then upload the chosen artifact in app UI (`submission_task3_guarded.zip` prior baseline, `submission_task3_agnostic_nms.zip` failed pass, or `submission_task3_conf020.zip` current best).
+Then upload the chosen artifact in app UI (`submission_task3_guarded.zip` prior baseline, `submission_task3_agnostic_nms.zip` failed pass, `submission_task3_conf020.zip` current best, or `submission_task3_iou065.zip` optional candidate).
 Set the best-scoring row as final in UI (current final: `0.7780`).
 
 ---

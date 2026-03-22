@@ -141,6 +141,33 @@ For every submission cycle:
 - `INFERRED`: Only selected implementation ideas (e.g., tiling/sliding-window patterns) may be reusable.
 - `DECISION`: Keep WALDO out of immediate submission path; continue optimizing existing Task 3 ONNX pipeline.
 
+### Entry T3-TRAINING-011
+- Timestamp: `2026-03-22 02:39` (CET, Oslo)
+- Evidence source: direct VM launch + process/log checks
+- `OBSERVED`: Started overnight high-upside retraining pipeline on VM (`PID 649159`):
+  - launcher: `~/task3-recovery/overnight_bigtrain.py`
+  - log: `~/task3-recovery/overnight_bigtrain.log`
+  - summary target: `/home/kenneth/task3-overnight/overnight_summary.txt`
+  - run order: `ft_beststripped_img960_e220` then `ft_yolov8l_img960_e260`
+- `OBSERVED`: GPU confirmed active during run (`NVIDIA L4`, high utilization).
+- `INFERRED`: This track has materially higher upside than minor post-processing tweaks and matches reduced remaining submission budget.
+- `DECISION`: Keep training running overnight and evaluate resulting ONNX exports before using additional submission slots.
+
+### Entry T3-CANDIDATE-012
+- Timestamp: `2026-03-22 02:48` (CET, Oslo)
+- Evidence source: direct VM run logs + artifact packaging
+- `OBSERVED`: One-variable candidate changed only `IOU_THRESHOLD` in `run.py` (`0.70 -> 0.65`) while keeping class-aware NMS and `CONF_THRESHOLD=0.20`.
+- `OBSERVED`: VM full dry-run runtime `45.683s` on `248` images.
+- `OBSERVED`: Candidate output produced `25,568` predictions with `bad_records=0`.
+- `OBSERVED`: Custom proxy evaluation (IoU>=0.5 weighted `70/30`) moved from `0.824353` (`conf020`) to `0.824723` (`iou065`), delta `+0.000370`.
+- `OBSERVED`: Candidate artifact built and verified:
+  - VM path: `~/submission_task3_iou065.zip`
+  - Local path: `task3-Norgesgruppen/submission_task3_iou065.zip`
+  - Size: `138 MB`
+  - Zip root contents: `run.py`, `best.onnx`
+- `INFERRED`: Candidate is low risk and valid, but expected gain is likely too small to prioritize with `4` submissions remaining.
+- `DECISION`: Hold as optional fallback candidate; prioritize higher-upside retraining outputs for next submit.
+
 ## 5. Active Hypothesis Queue
 
 ### HYP-001: ONNX decoding/parsing correctness
