@@ -6,6 +6,22 @@
 - Timestamped leaderboard evidence must be appended when baseline status changes.
 - Before ending a Task 3 session, docs updates must be pushed to GitHub to avoid local-only data loss.
 
+## 0.1 Submission Outcome Update (2026-03-22, Sunday 02:10 CET)
+
+- `OBSERVED`: `CONF_THRESHOLD=0.20` candidate submission completed (`22. mars 02:09–02:10` in UI).
+- `OBSERVED`: Score improved to `0.7780` (from previous best `0.7626`).
+- `OBSERVED`: Runtime `19.1s`; file size `138.2 MB`.
+- `OBSERVED`: New row is selected as final in UI.
+- `INFERRED`: Lowering confidence threshold on class-aware pipeline improved organizer scoring despite a small runtime increase.
+- `DECISION`: Freeze `0.7780` as current baseline/final while running only one-variable follow-up passes.
+
+## 0.2 External Idea Check (2026-03-22, Sunday 02:22 CET)
+
+- `OBSERVED`: Peer tip reviewed: WALDO repository (`stephansturges/WALDO`).
+- `INFERRED`: Not a direct swap candidate for Task 3 due domain/class mismatch (overhead/drone classes vs 357 grocery SKUs).
+- `INFERRED`: Potentially useful only for generic ideas (tiling/sliding-window patterns).
+- `DECISION`: Keep WALDO out of direct submission path; retain ONNX grocery-specific pipeline.
+
 ## 1. Latest Session Update (2026-03-22, Sunday 02:05 CET)
 
 - Restored known-good NMS mode and changed one tuning lever only:
@@ -144,7 +160,7 @@
 
 ## 2. Next Actions
 
-1. Submit `task3-Norgesgruppen/submission_task3_conf020.zip` as the next one-variable bounded attempt.
-2. If score does not beat `0.7626`, keep existing high-score entry selected as final (no re-upload needed).
-3. Record resulting score/runtime/rank evidence in `PastSubmissions.md` immediately with exact timestamp.
-4. Keep further experiments strictly one-variable per submission.
+1. Keep `0.7780` row selected as final in UI.
+2. If another attempt is made, keep it one-variable only and predefine rollback criteria (`must beat 0.7780`).
+3. Continue using GCP aggressively for validation/sweeps (no token/credit limit) while preserving submission discipline.
+4. Record each submission result in `PastSubmissions.md` with exact timestamp + `OBSERVED/INFERRED/DECISION`.
