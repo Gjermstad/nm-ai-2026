@@ -67,6 +67,18 @@ For every submission cycle:
 - `INFERRED`: Prior score bottleneck likely came from post-processing quality, and this candidate is materially safer than the previous baseline.
 - `DECISION`: Use this as the next controlled single submission candidate and log post-submit score/rank delta immediately.
 
+### Entry T3-RESULT-005
+- Timestamp: `2026-03-22 01:02` (Oslo, submission completion shown in UI)
+- Evidence source: operator-shared submission history + leaderboard screenshots
+- `OBSERVED`: Submission score `0.7626` mAP.
+- `OBSERVED`: Submission size `138.2 MB`.
+- `OBSERVED`: Submission runtime `17.5s`.
+- `OBSERVED` (operator-reported): Task 3 rank improved from `#309` to `#249`.
+- `OBSERVED` (operator-reported): Overall rank improved to `#230` out of `467` teams with points.
+- `OBSERVED`: Overall columns shown: `Detection 82.4`, `Tripletex 32.3`, `Astar Island 54.1`, `Total 56.3`.
+- `INFERRED`: The updated ONNX inference path (letterbox-aware rescaling + class-aware NMS + clipping) produced the main performance jump.
+- `DECISION`: Freeze this as current safe baseline; only run bounded follow-up tuning if expected gain outweighs submission risk.
+
 ## 5. Active Hypothesis Queue
 
 ### HYP-001: ONNX decoding/parsing correctness

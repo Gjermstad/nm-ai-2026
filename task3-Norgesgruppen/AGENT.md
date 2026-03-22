@@ -1,8 +1,8 @@
 # AGENT.md — Task 3: NorgesGruppen Object Detection
 
 > NM i AI 2026 — Task 3 handoff/control file
-> Last updated: 2026-03-22 00:42 CET (Sunday, Oslo)
-> Status: Guarded ONNX candidate prepared (`submission_task3_guarded.zip`); full dry run succeeded in 45s on 248 images.
+> Last updated: 2026-03-22 01:10 CET (Sunday, Oslo)
+> Status: Guarded ONNX candidate submitted successfully; score improved to `0.7626` with operator-reported rank jump to `#249`.
 
 ---
 
@@ -47,7 +47,8 @@ Secondary objective:
 - Storage bucket: `gs://ai-nm26osl-1730-nmd-dataset/`
 - Training VM: `yolo-training-vm`
 - VM zone: `europe-west1-c` (not `europe-west1-b`)
-- Working directory on VM: `~/nm-ai-2026/task3-Norgesgruppen`
+- VM source workspace (read-only for user `kenneth`): `/home/devstar17301/nm-ai-2026/task3-Norgesgruppen`
+- VM writable workspace (user `kenneth`): `~/task3-recovery`
 - Repo: `https://github.com/Gjermstad/nm-ai-2026`
 
 Sandbox constraints (organizer):
@@ -57,6 +58,23 @@ Sandbox constraints (organizer):
 - NVIDIA L4 / CUDA 12.4
 - Blocked imports include `os`, `sys`, `subprocess`, `socket` (use `pathlib`)
 - Required compatibility targets previously noted: `ultralytics==8.1.0`, `torch==2.6.0`
+
+### GCP Connection Playbook (No Secrets)
+
+Use this exact style for future sessions:
+
+1. Use temporary local gcloud config to avoid host permission issues:
+   - `CLOUDSDK_CONFIG=/tmp/gcloud-config gcloud compute instances list --filter='name=yolo-training-vm' --format='table(name,zone,status,machineType)'`
+2. SSH to VM with explicit key file:
+   - `CLOUDSDK_CONFIG=/tmp/gcloud-config gcloud compute ssh yolo-training-vm --zone=europe-west1-c --ssh-key-file=/tmp/gce_key --command='...'`
+3. Copy files to VM and back:
+   - upload: `CLOUDSDK_CONFIG=/tmp/gcloud-config gcloud compute scp <local_file> yolo-training-vm:~/<target> --zone=europe-west1-c --ssh-key-file=/tmp/gce_key`
+   - download: `CLOUDSDK_CONFIG=/tmp/gcloud-config gcloud compute scp yolo-training-vm:~/<source> <local_target> --zone=europe-west1-c --ssh-key-file=/tmp/gce_key`
+4. Use VM Python from DL environment:
+   - `/opt/conda/bin/python`
+5. Known nuance:
+   - ONNX CUDA provider failed on VM due local cuDNN mismatch, so VM validation ran on CPU.
+   - Competition sandbox still has its own GPU environment; do not infer sandbox failure from this VM-local CUDA warning.
 
 ---
 
@@ -84,18 +102,22 @@ Run this exact sequence before making changes:
 
 ---
 
-## 4. Current Baseline Snapshot (Last Verified: 2026-03-21 22:48 Oslo)
+## 4. Current Baseline Snapshot (Last Verified: 2026-03-22 01:02 Oslo)
 
-Latest verified Task 3 checkpoint (from leaderboard screenshot):
-- Score: `0.1786` mAP
-- Rank: `#301` out of `313` teams with points
-- Submission count shown: `1`
-- Historical artifact context: ONNX-based `run.py` + `best.onnx` (from prior notes)
-- Working hypothesis: ONNX output parsing/classification likely incorrect
+Latest verified Task 3 checkpoint (from operator-shared submission + leaderboard screenshots):
+- Score: `0.7626` mAP
+- Rank: `#249` (operator reported, previously `#309`)
+- Submission runtime shown: `17.5s`
+- Submission artifact: `submission_task3_guarded.zip` (`138.2 MB`) containing `run.py` + `best.onnx`
+- Working hypothesis update: ONNX post-processing fixes (letterbox-aware scaling + class-aware NMS + clipping) were the primary improvement driver.
 
 Important:
-- The older `#157` note is stale historical context, not current standing.
+- Older `#157` and `0.1786` notes remain historical context only.
 - Always include exact "last verified" timestamp when updating these fields.
+
+Cross-task checkpoint from same session:
+- Overall rank: `#230` out of `467` teams with points (operator reported)
+- Overall columns shown: `Detection 82.4`, `Tripletex 32.3`, `Astar Island 54.1`, `Total 56.3`
 
 ---
 
