@@ -10,10 +10,12 @@ This repository documents my solo entry: all code, experiments, submissions, and
 
 | Task | Description | Score | Rank |
 |------|-------------|-------|------|
-| Task 1 — Tripletex | AI accounting agent | 34.3 (normalized) / 35.79 raw | #233 / 476 |
-| Task 2 — Astar Island | Norse world terrain prediction | 69.4 (normalized) / 185.1 raw | #242 / 476 |
-| Task 3 — NorgesGruppen | Grocery shelf object detection | 95.2 (normalized) / 0.8818 mAP | #204 / 476 |
+| Task 1 — Tripletex | AI accounting agent | 34.3 (normalized) / 35.79 raw | #233 / 398 |
+| Task 2 — Astar Island | Norse world terrain prediction | 69.4 (normalized) / 185.1 raw | #242 / 395 |
+| Task 3 — NorgesGruppen | Grocery shelf object detection | 95.2 (normalized) / 0.8818 mAP | #204 / 347 |
 | **Overall** | Average across all three tasks | **66.3** | **#214 / 476** |
+
+_Since it was possible to get points in just one task, the leaderboard for a single task is not as long as the full leaderboard where 476 teams in total got points in at least one task._
 
 ---
 
